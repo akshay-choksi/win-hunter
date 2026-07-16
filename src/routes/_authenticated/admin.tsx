@@ -14,17 +14,36 @@ export const Route = createFileRoute("/_authenticated/admin")({
 function AdminPage() {
   const { user, loading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [accessError, setAccessError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    supabase
+  async function checkAdminAccess(userId: string) {
+    setIsAdmin(null);
+    setAccessError(null);
+    const { data, error } = await supabase
       .from("profiles")
       .select("is_admin")
-      .eq("id", user.id)
-      .maybeSingle()
-      .then(({ data }) => setIsAdmin(!!data?.is_admin));
-  }, [user]);
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error) {
+      setAccessError(error.message);
+      setIsAdmin(false);
+      return;
+    }
+
+    setIsAdmin(data?.is_admin === true);
+  }
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      setIsAdmin(false);
+      setAccessError(null);
+      return;
+    }
+    checkAdminAccess(user.id);
+  }, [loading, user?.id]);
 
   async function syncOdds() {
     setSyncing(true);
@@ -47,6 +66,21 @@ function AdminPage() {
       <div className="flex items-center gap-2 text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" /> Checking access…
       </div>
+    );
+  }
+
+  if (accessError) {
+    return (
+      <Card className="mx-auto max-w-md p-8 text-center">
+        <ShieldAlert className="mx-auto mb-3 h-10 w-10 text-red-600" />
+        <h1 className="text-xl font-bold">Unable to verify admin access</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Your account may be admin, but the profile check failed. Try again in a moment.
+        </p>
+        <Button className="mt-4" variant="outline" onClick={() => user && checkAdminAccess(user.id)}>
+          Retry access check
+        </Button>
+      </Card>
     );
   }
 

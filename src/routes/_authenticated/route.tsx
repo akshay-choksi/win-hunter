@@ -1,16 +1,32 @@
-import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
+import {
+  ClientOnly,
+  createFileRoute,
+  Outlet,
+  redirect,
+  Link,
+  useRouter,
+} from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Flag } from "lucide-react";
+import { RouteShell } from "@/components/route-shell";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
     const { data } = await supabase.auth.getSession();
-    if (!data.session) throw redirect({ to: "/auth" });
+    if (!data.session) {
+      // Full document navigation avoids hydrating /auth against the / shell HTML.
+      throw redirect({ to: "/auth", reloadDocument: true });
+    }
   },
-  component: AuthedLayout,
+  pendingComponent: RouteShell,
+  component: () => (
+    <ClientOnly fallback={<RouteShell />}>
+      <AuthedLayout />
+    </ClientOnly>
+  ),
 });
 
 function AuthedLayout() {
@@ -19,7 +35,7 @@ function AuthedLayout() {
 
   async function signOut() {
     await supabase.auth.signOut();
-    router.navigate({ to: "/auth", replace: true });
+    router.navigate({ to: "/auth", replace: true, reloadDocument: true });
   }
 
   return (

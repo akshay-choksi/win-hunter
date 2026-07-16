@@ -14,9 +14,25 @@ export type Database = {
   }
   public: {
     Tables: {
+      fedex_payout: {
+        Row: {
+          finish_position: number
+          points: number
+        }
+        Insert: {
+          finish_position: number
+          points: number
+        }
+        Update: {
+          finish_position?: number
+          points?: number
+        }
+        Relationships: []
+      }
       golfers: {
         Row: {
           created_at: string
+          dg_player_id: string | null
           id: string
           is_active: boolean
           name: string
@@ -26,6 +42,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dg_player_id?: string | null
           id?: string
           is_active?: boolean
           name: string
@@ -35,6 +52,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dg_player_id?: string | null
           id?: string
           is_active?: boolean
           name?: string
@@ -141,7 +159,9 @@ export type Database = {
           created_at: string
           id: string
           league_id: string
+          total_points: number
           total_spent: number
+          tournament_id: string
           updated_at: string
           user_id: string
         }
@@ -149,7 +169,9 @@ export type Database = {
           created_at?: string
           id?: string
           league_id: string
+          total_points?: number
           total_spent?: number
+          tournament_id: string
           updated_at?: string
           user_id: string
         }
@@ -157,7 +179,9 @@ export type Database = {
           created_at?: string
           id?: string
           league_id?: string
+          total_points?: number
           total_spent?: number
+          tournament_id?: string
           updated_at?: string
           user_id?: string
         }
@@ -167,6 +191,118 @@ export type Database = {
             columns: ["league_id"]
             isOneToOne: false
             referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lineups_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_prices: {
+        Row: {
+          created_at: string
+          decimal_odds: number | null
+          golfer_id: string
+          implied_prob: number | null
+          salary: number
+          tournament_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decimal_odds?: number | null
+          golfer_id: string
+          implied_prob?: number | null
+          salary?: number
+          tournament_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decimal_odds?: number | null
+          golfer_id?: string
+          implied_prob?: number | null
+          salary?: number
+          tournament_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_prices_golfer_id_fkey"
+            columns: ["golfer_id"]
+            isOneToOne: false
+            referencedRelation: "golfers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_prices_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_results: {
+        Row: {
+          birdies: number
+          created_at: string
+          eagles: number
+          fantasy_points: number
+          golfer_id: string
+          made_cut: boolean
+          position: number | null
+          rounds: Json
+          status: string | null
+          total_to_par: number | null
+          tournament_id: string
+          updated_at: string
+        }
+        Insert: {
+          birdies?: number
+          created_at?: string
+          eagles?: number
+          fantasy_points?: number
+          golfer_id: string
+          made_cut?: boolean
+          position?: number | null
+          rounds?: Json
+          status?: string | null
+          total_to_par?: number | null
+          tournament_id: string
+          updated_at?: string
+        }
+        Update: {
+          birdies?: number
+          created_at?: string
+          eagles?: number
+          fantasy_points?: number
+          golfer_id?: string
+          made_cut?: boolean
+          position?: number | null
+          rounds?: Json
+          status?: string | null
+          total_to_par?: number | null
+          tournament_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_results_golfer_id_fkey"
+            columns: ["golfer_id"]
+            isOneToOne: false
+            referencedRelation: "golfers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_results_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
             referencedColumns: ["id"]
           },
         ]
@@ -198,11 +334,101 @@ export type Database = {
         }
         Relationships: []
       }
+      season_standings: {
+        Row: {
+          events_played: number
+          fedex_points: number
+          league_id: string
+          season_year: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          events_played?: number
+          fedex_points?: number
+          league_id: string
+          season_year: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          events_played?: number
+          fedex_points?: number
+          league_id?: string
+          season_year?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "season_standings_league_id_fkey"
+            columns: ["league_id"]
+            isOneToOne: false
+            referencedRelation: "leagues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournaments: {
+        Row: {
+          created_at: string
+          dg_event_id: string
+          end_date: string | null
+          event_type: Database["public"]["Enums"]["tournament_event_type"]
+          fedex_multiplier: number
+          id: string
+          lineup_lock_at: string | null
+          name: string
+          season_year: number
+          start_date: string | null
+          status: Database["public"]["Enums"]["tournament_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          dg_event_id: string
+          end_date?: string | null
+          event_type?: Database["public"]["Enums"]["tournament_event_type"]
+          fedex_multiplier?: number
+          id?: string
+          lineup_lock_at?: string | null
+          name: string
+          season_year: number
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["tournament_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          dg_event_id?: string
+          end_date?: string | null
+          event_type?: Database["public"]["Enums"]["tournament_event_type"]
+          fedex_multiplier?: number
+          id?: string
+          lineup_lock_at?: string | null
+          name?: string
+          season_year?: number
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["tournament_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      compute_fantasy_points: {
+        Args: {
+          _birdies: number
+          _eagles: number
+          _made_cut: boolean
+          _position: number | null
+          _total_to_par: number | null
+        }
+        Returns: number
+      }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
       is_league_member: {
         Args: { _league_id: string; _user_id: string }
@@ -210,7 +436,8 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      tournament_event_type: "standard" | "signature" | "major"
+      tournament_status: "scheduled" | "open" | "in_progress" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -337,6 +564,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      tournament_event_type: ["standard", "signature", "major"],
+      tournament_status: ["scheduled", "open", "in_progress", "completed"],
+    },
   },
 } as const

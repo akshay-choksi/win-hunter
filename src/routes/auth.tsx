@@ -1,10 +1,11 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { ClientOnly, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Flag } from "lucide-react";
 import { toast } from "sonner";
+import { RouteShell } from "@/components/route-shell";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -14,7 +15,12 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Sign in to your fantasy golf salary cap league." },
     ],
   }),
-  component: AuthPage,
+  pendingComponent: RouteShell,
+  component: () => (
+    <ClientOnly fallback={<RouteShell />}>
+      <AuthPage />
+    </ClientOnly>
+  ),
 });
 
 function AuthPage() {
@@ -23,19 +29,24 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/", replace: true });
+      if (data.session) navigate({ to: "/", replace: true, reloadDocument: true });
     });
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_IN" && session) navigate({ to: "/", replace: true });
+      if (event === "SIGNED_IN" && session) {
+        navigate({ to: "/", replace: true, reloadDocument: true });
+      }
     });
     return () => sub.subscription.unsubscribe();
   }, [navigate]);
 
   async function signInWithGoogle() {
     setLoading(true);
+    // Must be listed under Supabase Auth → URL Configuration → Redirect URLs.
+    // If missing, Supabase falls back to Site URL (often the Lovable preview).
+    const redirectTo = `${window.location.origin}/auth`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo },
     });
     if (error) {
       toast.error(error.message);

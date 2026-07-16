@@ -3,6 +3,7 @@ import {
   classifyEvent,
   corsHeaders,
   dgFetch,
+  earliestTeeLockAt,
   extractDecimalOdds,
   jsonResponse,
   oddsToSalaries,
@@ -17,6 +18,8 @@ type ScheduleEvent = {
   end_date?: string;
   course?: string;
   location?: string;
+  status?: string;
+  winner?: string;
 };
 
 type FieldPlayer = {
@@ -24,6 +27,12 @@ type FieldPlayer = {
   player_name?: string;
   first_name?: string;
   last_name?: string;
+  player_num?: string | number;
+  owgr_rank?: string | number;
+  tee_time?: string;
+  teetime?: string;
+  r1_tee_time?: string;
+  [key: string]: unknown;
 };
 
 Deno.serve(async (req) => {
@@ -55,20 +64,35 @@ Deno.serve(async (req) => {
       const startDate = ev.start_date ?? null;
       const endDate = ev.end_date ?? startDate;
       const lockAt = thursdayLockAt(startDate);
+      const mappedStatus = mapScheduleStatus(ev);
 
-      const { error } = await admin.from("tournaments").upsert(
-        {
-          dg_event_id: dgEventId,
-          name,
-          start_date: startDate,
-          end_date: endDate,
-          season_year: seasonYear,
-          event_type: eventType,
-          fedex_multiplier: 1.0,
-          lineup_lock_at: lockAt,
-        },
-        { onConflict: "dg_event_id" },
-      );
+      const row: Record<string, unknown> = {
+        dg_event_id: dgEventId,
+        name,
+        start_date: startDate,
+        end_date: endDate,
+        season_year: seasonYear,
+        event_type: eventType,
+        fedex_multiplier: 1.0,
+        lineup_lock_at: lockAt,
+      };
+      // Always apply completed from DataGolf; for upcoming leave existing open/in_progress alone
+      if (mappedStatus === "completed") {
+        row.status = "completed";
+      } else if (mappedStatus === "scheduled") {
+        // Only set scheduled on insert — don't downgrade open/in_progress via blind upsert.
+        // Fetch existing; if missing or already scheduled, set scheduled.
+        const { data: existing } = await admin
+          .from("tournaments")
+          .select("id, status")
+          .eq("dg_event_id", dgEventId)
+          .maybeSingle();
+        if (!existing || existing.status === "scheduled") {
+          row.status = "scheduled";
+        }
+      }
+
+      const { error } = await admin.from("tournaments").upsert(row, { onConflict: "dg_event_id" });
       if (error) throw new Error(`Tournament upsert failed: ${error.message}`);
       tournamentsUpserted += 1;
     }
@@ -115,6 +139,11 @@ Deno.serve(async (req) => {
         .maybeSingle();
       tournamentId = data?.id ?? null;
     }
+    const lockFromTees = earliestTeeLockAt(
+      fieldPlayers as Record<string, unknown>[],
+      fieldMeta.startDate,
+    );
+
     if (!tournamentId) {
       // Create from field meta if schedule missed it
       const dgEventId = fieldMeta.eventId ?? `field-${seasonYear}-${slugify(fieldMeta.eventName ?? "event")}`;
@@ -129,7 +158,7 @@ Deno.serve(async (req) => {
             event_type: classifyEvent(name),
             fedex_multiplier: 1.0,
             status: "open",
-            lineup_lock_at: thursdayLockAt(fieldMeta.startDate),
+            lineup_lock_at: lockFromTees ?? thursdayLockAt(fieldMeta.startDate),
             start_date: fieldMeta.startDate,
           },
           { onConflict: "dg_event_id" },
@@ -140,10 +169,17 @@ Deno.serve(async (req) => {
       tournamentId = data.id;
     }
 
-    // Mark active tournament open (keep completed as-is)
+    // Mark active tournament open / in_progress from field meta (keep completed as-is)
+    const activeStatus =
+      fieldMeta.currentRound != null && fieldMeta.currentRound >= 1 ? "in_progress" : "open";
     await admin
       .from("tournaments")
-      .update({ status: "open" })
+      .update({
+        status: activeStatus,
+        ...(fieldMeta.startDate ? { start_date: fieldMeta.startDate } : {}),
+        ...(fieldMeta.endDate ? { end_date: fieldMeta.endDate } : {}),
+        ...(lockFromTees ? { lineup_lock_at: lockFromTees } : {}),
+      })
       .eq("id", tournamentId)
       .neq("status", "completed");
 
@@ -165,6 +201,16 @@ Deno.serve(async (req) => {
       const name = formatPlayerName(p);
       if (!name) continue;
 
+      const pgaPlayerNum = extractPgaPlayerNum(p);
+      const owgrRank = extractOwgrRank(p);
+      const meta = {
+        name,
+        is_active: true,
+        tournament_name: fieldMeta.eventName,
+        ...(pgaPlayerNum ? { pga_player_num: pgaPlayerNum } : {}),
+        ...(owgrRank != null ? { owgr_rank: owgrRank } : {}),
+      };
+
       const { data: existing } = await admin
         .from("golfers")
         .select("id")
@@ -172,20 +218,15 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (existing) {
-        await admin
-          .from("golfers")
-          .update({ name, is_active: true, tournament_name: fieldMeta.eventName })
-          .eq("id", existing.id);
+        await admin.from("golfers").update(meta).eq("id", existing.id);
         golferIdByDg.set(dgId, existing.id);
       } else {
         const { data: created, error } = await admin
           .from("golfers")
           .insert({
-            name,
+            ...meta,
             dg_player_id: dgId,
-            is_active: true,
             salary: 0,
-            tournament_name: fieldMeta.eventName,
           })
           .select("id")
           .single();
@@ -250,10 +291,12 @@ Deno.serve(async (req) => {
       message: `Synced ${fieldMeta.eventName ?? "event"}: ${golfersUpserted} golfers, ${priceRows.length} prices.`,
       tournamentId,
       eventName: fieldMeta.eventName,
+      activeStatus,
       tournamentsUpserted,
       golfersUpserted,
       pricesUpserted: priceRows.length,
       withOdds: salaryMap.size,
+      scheduleCompleted: scheduleEvents.filter((e) => mapScheduleStatus(e) === "completed").length,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "sync-odds failed";
@@ -277,15 +320,46 @@ function extractFieldMeta(raw: unknown): {
   eventId: string | null;
   eventName: string | null;
   startDate: string | null;
+  endDate: string | null;
+  currentRound: number | null;
 } {
   if (!raw || typeof raw !== "object") {
-    return { eventId: null, eventName: null, startDate: null };
+    return { eventId: null, eventName: null, startDate: null, endDate: null, currentRound: null };
   }
   const obj = raw as Record<string, unknown>;
   const eventId = obj.event_id != null ? String(obj.event_id) : null;
   const eventName = typeof obj.event_name === "string" ? obj.event_name : null;
-  const startDate = typeof obj.start_date === "string" ? obj.start_date : null;
-  return { eventId, eventName, startDate };
+  const startDate =
+    typeof obj.date_start === "string"
+      ? obj.date_start
+      : typeof obj.start_date === "string"
+        ? obj.start_date
+        : null;
+  const endDate =
+    typeof obj.date_end === "string"
+      ? obj.date_end
+      : typeof obj.end_date === "string"
+        ? obj.end_date
+        : null;
+  const cr = obj.current_round;
+  const currentRound =
+    typeof cr === "number" && Number.isFinite(cr)
+      ? Math.trunc(cr)
+      : typeof cr === "string" && Number.isFinite(Number(cr))
+        ? Math.trunc(Number(cr))
+        : null;
+  return { eventId, eventName, startDate, endDate, currentRound };
+}
+
+/** Map DataGolf schedule status → our tournament_status. */
+function mapScheduleStatus(ev: ScheduleEvent): "completed" | "scheduled" | null {
+  const s = (ev.status ?? "").toLowerCase().trim();
+  if (s === "completed" || s === "complete" || s === "final") return "completed";
+  // Winner present and not TBD → completed
+  const winner = (ev.winner ?? "").trim();
+  if (winner && winner.toUpperCase() !== "TBD") return "completed";
+  if (s === "upcoming" || s === "scheduled" || s === "preview") return "scheduled";
+  return null;
 }
 
 function extractFieldPlayers(raw: unknown): FieldPlayer[] {
@@ -322,6 +396,21 @@ function formatPlayerName(p: FieldPlayer): string {
     return `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
   }
   return "";
+}
+
+function extractPgaPlayerNum(p: FieldPlayer): string | null {
+  const raw = p.player_num ?? p.pga_player_num;
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  return /^\d+$/.test(s) ? s : null;
+}
+
+function extractOwgrRank(p: FieldPlayer): number | null {
+  const raw = p.owgr_rank;
+  if (raw == null || raw === "") return null;
+  const n = typeof raw === "number" ? raw : Number(String(raw).replace(/[^\d.]/g, ""));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.trunc(n);
 }
 
 function slugify(s: string): string {

@@ -141,7 +141,7 @@ function AdminPage() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       toast.success("Event finalized", {
-        description: data?.message ?? "FedEx points awarded.",
+        description: data?.message ?? "Season points awarded.",
       });
       await loadTournaments();
     } catch (err) {
@@ -202,7 +202,7 @@ function AdminPage() {
         <div>
           <h1 className="text-2xl font-bold">Admin Dashboard</h1>
           <p className="text-sm text-muted-foreground">
-            Manage tournament data, odds pricing, and FedEx finals.
+            Manage tournament data, odds pricing, and season finals.
           </p>
         </div>
       </div>
@@ -230,7 +230,7 @@ function AdminPage() {
         <div>
           <h2 className="font-semibold">Live Results & Finalize</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sync live scores into fantasy points, then finalize to award FedEx points by league
+            Sync live scores into fantasy points, then finalize to award season points by league
             finish.
           </p>
         </div>

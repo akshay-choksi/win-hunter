@@ -115,6 +115,67 @@ export function thursdayLockAt(startDate: string | null | undefined): string | n
   return d.toISOString();
 }
 
+/** Parse a DataGolf tee time into an ISO timestamp; returns null if unparseable. */
+export function parseTeeTime(
+  raw: unknown,
+  fallbackDate?: string | null,
+): string | null {
+  if (raw == null) return null;
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    // Unix seconds or ms
+    const ms = raw > 1e12 ? raw : raw * 1000;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  if (typeof raw !== "string") return null;
+  const s = raw.trim();
+  if (!s) return null;
+
+  // Full ISO / datetime
+  const direct = new Date(s);
+  if (!Number.isNaN(direct.getTime()) && /[T\s-]/.test(s) && s.length >= 10) {
+    return direct.toISOString();
+  }
+
+  // Time-only like "7:12" or "07:12 AM" — attach to event start date
+  const timeMatch = s.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if (timeMatch && fallbackDate) {
+    let hours = Number(timeMatch[1]);
+    const mins = Number(timeMatch[2]);
+    const ampm = timeMatch[3]?.toUpperCase();
+    if (ampm === "PM" && hours < 12) hours += 12;
+    if (ampm === "AM" && hours === 12) hours = 0;
+    const d = new Date(
+      `${fallbackDate}T${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:00.000Z`,
+    );
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
+
+  return Number.isNaN(direct.getTime()) ? null : direct.toISOString();
+}
+
+/**
+ * Earliest tee time across field players → lineup lock.
+ * Falls back to Thursday morning UTC from start_date when no tees present.
+ */
+export function earliestTeeLockAt(
+  players: Record<string, unknown>[],
+  startDate?: string | null,
+): string | null {
+  let earliest: number | null = null;
+  for (const p of players) {
+    const raw =
+      p.tee_time ?? p.teetime ?? p.r1_tee_time ?? p.r1_teetime ?? p.teeTime;
+    const iso = parseTeeTime(raw, startDate);
+    if (!iso) continue;
+    const ms = new Date(iso).getTime();
+    if (Number.isNaN(ms)) continue;
+    if (earliest == null || ms < earliest) earliest = ms;
+  }
+  if (earliest != null) return new Date(earliest).toISOString();
+  return thursdayLockAt(startDate);
+}
+
 const BOOK_KEYS = [
   "bet365",
   "draftkings",

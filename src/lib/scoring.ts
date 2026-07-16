@@ -41,6 +41,29 @@ export function formatOdds(decimalOdds: number | null | undefined): string {
   return decimalOdds >= 10 ? decimalOdds.toFixed(1) : decimalOdds.toFixed(2);
 }
 
+/** Convert decimal odds (e.g. 6.0) to American integer (e.g. +500). */
+export function decimalToAmerican(decimalOdds: number): number | null {
+  if (!Number.isFinite(decimalOdds) || decimalOdds <= 1) return null;
+  if (decimalOdds >= 2) return Math.round((decimalOdds - 1) * 100);
+  return Math.round(-100 / (decimalOdds - 1));
+}
+
+/** Display American odds from stored decimal (`+500`, `-110`). */
+export function formatAmericanOdds(decimalOdds: number | null | undefined): string {
+  if (decimalOdds == null || !Number.isFinite(decimalOdds)) return "—";
+  const american = decimalToAmerican(decimalOdds);
+  if (american == null) return "—";
+  return american > 0 ? `+${american}` : String(american);
+}
+
+/** PGA Tour Cloudinary headshot URL from field `player_num`. */
+export function golferHeadshotUrl(pgaPlayerNum: string | null | undefined): string | null {
+  if (!pgaPlayerNum) return null;
+  const num = String(pgaPlayerNum).trim();
+  if (!num || !/^\d+$/.test(num)) return null;
+  return `https://pga-tour-res.cloudinary.com/image/upload/c_fill,g_face,w_80,h_80/headshots_${num}.png`;
+}
+
 export type TournamentStatus = "scheduled" | "open" | "in_progress" | "completed";
 export type TournamentEventType = "standard" | "signature" | "major";
 
@@ -61,4 +84,37 @@ export function isLineupLocked(tournament: Pick<Tournament, "lineup_lock_at" | "
   if (tournament.status === "completed" || tournament.status === "in_progress") return true;
   if (!tournament.lineup_lock_at) return false;
   return Date.now() >= new Date(tournament.lineup_lock_at).getTime();
+}
+
+/** Closest event that is not completed (prefers in_progress / open, else nearest by start date). */
+export function pickActiveTournament(
+  list: Tournament[],
+  nowMs: number = Date.now(),
+): Tournament | null {
+  if (!list.length) return null;
+
+  const inProgress = list.find((t) => t.status === "in_progress");
+  if (inProgress) return inProgress;
+  const open = list.find((t) => t.status === "open");
+  if (open) return open;
+
+  const candidates = list.filter((t) => t.status !== "completed");
+  if (!candidates.length) return null;
+
+  const scored = candidates.map((t) => {
+    const start = t.start_date
+      ? new Date(`${t.start_date}T12:00:00.000Z`).getTime()
+      : Number.POSITIVE_INFINITY;
+    return { t, start, delta: start - nowMs };
+  });
+
+  scored.sort((a, b) => {
+    // Prefer events that haven't finished their start week yet (delta >= -4 days)
+    const aLive = a.delta >= -4 * 86400000;
+    const bLive = b.delta >= -4 * 86400000;
+    if (aLive !== bLive) return aLive ? -1 : 1;
+    return Math.abs(a.delta) - Math.abs(b.delta);
+  });
+
+  return scored[0]?.t ?? null;
 }

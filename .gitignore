@@ -30,6 +30,19 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+Thumbs.db
 
-# Local secrets
-.env.local
+# Local secrets / env
+.env
+.env.*
+!.env.example
+
+# Supabase CLI local cache
+supabase/.temp/
+supabase/.branches/
+
+# Cursor / agent debug
+.cursor/
+*.tsbuildinfo
+coverage/
+.turbo/

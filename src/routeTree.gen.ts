@@ -14,7 +14,8 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedLeagueIdRouteImport } from './routes/_authenticated/league.$id'
-import { Route as AuthenticatedLeagueIdDraftRouteImport } from './routes/_authenticated/league.$id.draft'
+import { Route as AuthenticatedLeagueIdDraftRouteImport } from './routes/_authenticated/league.$id_.draft'
+import { Route as AuthenticatedLeagueIdLineupUserIdRouteImport } from './routes/_authenticated/league.$id_.lineup.$userId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -42,24 +43,32 @@ const AuthenticatedLeagueIdRoute = AuthenticatedLeagueIdRouteImport.update({
 } as any)
 const AuthenticatedLeagueIdDraftRoute =
   AuthenticatedLeagueIdDraftRouteImport.update({
-    id: '/draft',
-    path: '/draft',
-    getParentRoute: () => AuthenticatedLeagueIdRoute,
+    id: '/league/$id_/draft',
+    path: '/league/$id/draft',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedLeagueIdLineupUserIdRoute =
+  AuthenticatedLeagueIdLineupUserIdRouteImport.update({
+    id: '/league/$id_/lineup/$userId',
+    path: '/league/$id/lineup/$userId',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
-  '/league/$id': typeof AuthenticatedLeagueIdRouteWithChildren
+  '/league/$id': typeof AuthenticatedLeagueIdRoute
   '/league/$id/draft': typeof AuthenticatedLeagueIdDraftRoute
+  '/league/$id/lineup/$userId': typeof AuthenticatedLeagueIdLineupUserIdRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/admin': typeof AuthenticatedAdminRoute
   '/': typeof AuthenticatedIndexRoute
-  '/league/$id': typeof AuthenticatedLeagueIdRouteWithChildren
+  '/league/$id': typeof AuthenticatedLeagueIdRoute
   '/league/$id/draft': typeof AuthenticatedLeagueIdDraftRoute
+  '/league/$id/lineup/$userId': typeof AuthenticatedLeagueIdLineupUserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -67,14 +76,27 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/league/$id': typeof AuthenticatedLeagueIdRouteWithChildren
-  '/_authenticated/league/$id/draft': typeof AuthenticatedLeagueIdDraftRoute
+  '/_authenticated/league/$id': typeof AuthenticatedLeagueIdRoute
+  '/_authenticated/league/$id_/draft': typeof AuthenticatedLeagueIdDraftRoute
+  '/_authenticated/league/$id_/lineup/$userId': typeof AuthenticatedLeagueIdLineupUserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/admin' | '/league/$id' | '/league/$id/draft'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/admin'
+    | '/league/$id'
+    | '/league/$id/draft'
+    | '/league/$id/lineup/$userId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/admin' | '/' | '/league/$id' | '/league/$id/draft'
+  to:
+    | '/auth'
+    | '/admin'
+    | '/'
+    | '/league/$id'
+    | '/league/$id/draft'
+    | '/league/$id/lineup/$userId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -82,7 +104,8 @@ export interface FileRouteTypes {
     | '/_authenticated/admin'
     | '/_authenticated/'
     | '/_authenticated/league/$id'
-    | '/_authenticated/league/$id/draft'
+    | '/_authenticated/league/$id_/draft'
+    | '/_authenticated/league/$id_/lineup/$userId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -127,39 +150,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLeagueIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/league/$id/draft': {
-      id: '/_authenticated/league/$id/draft'
-      path: '/draft'
+    '/_authenticated/league/$id_/draft': {
+      id: '/_authenticated/league/$id_/draft'
+      path: '/league/$id/draft'
       fullPath: '/league/$id/draft'
       preLoaderRoute: typeof AuthenticatedLeagueIdDraftRouteImport
-      parentRoute: typeof AuthenticatedLeagueIdRoute
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/league/$id_/lineup/$userId': {
+      id: '/_authenticated/league/$id_/lineup/$userId'
+      path: '/league/$id/lineup/$userId'
+      fullPath: '/league/$id/lineup/$userId'
+      preLoaderRoute: typeof AuthenticatedLeagueIdLineupUserIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
 
-interface AuthenticatedLeagueIdRouteChildren {
-  AuthenticatedLeagueIdDraftRoute: typeof AuthenticatedLeagueIdDraftRoute
-}
-
-const AuthenticatedLeagueIdRouteChildren: AuthenticatedLeagueIdRouteChildren = {
-  AuthenticatedLeagueIdDraftRoute: AuthenticatedLeagueIdDraftRoute,
-}
-
-const AuthenticatedLeagueIdRouteWithChildren =
-  AuthenticatedLeagueIdRoute._addFileChildren(
-    AuthenticatedLeagueIdRouteChildren,
-  )
-
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedLeagueIdRoute: typeof AuthenticatedLeagueIdRouteWithChildren
+  AuthenticatedLeagueIdRoute: typeof AuthenticatedLeagueIdRoute
+  AuthenticatedLeagueIdDraftRoute: typeof AuthenticatedLeagueIdDraftRoute
+  AuthenticatedLeagueIdLineupUserIdRoute: typeof AuthenticatedLeagueIdLineupUserIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedLeagueIdRoute: AuthenticatedLeagueIdRouteWithChildren,
+  AuthenticatedLeagueIdRoute: AuthenticatedLeagueIdRoute,
+  AuthenticatedLeagueIdDraftRoute: AuthenticatedLeagueIdDraftRoute,
+  AuthenticatedLeagueIdLineupUserIdRoute:
+    AuthenticatedLeagueIdLineupUserIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

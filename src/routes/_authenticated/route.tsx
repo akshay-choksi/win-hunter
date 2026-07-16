@@ -28,7 +28,7 @@ function AuthedLayout() {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
           <Link to="/" className="flex items-center gap-2 font-bold text-lg">
             <Flag className="h-5 w-5 text-emerald-600" />
-            <span>Fairway Cap</span>
+            <span>WinHunters</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link to="/admin" className="text-sm text-muted-foreground hover:text-foreground">

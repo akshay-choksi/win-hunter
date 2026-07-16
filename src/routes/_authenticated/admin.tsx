@@ -43,7 +43,7 @@ function AdminPage() {
       return;
     }
     checkAdminAccess(user.id);
-  }, [user]);
+  }, [loading, user?.id]);
 
   async function syncOdds() {
     setSyncing(true);

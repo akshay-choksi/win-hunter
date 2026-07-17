@@ -5,14 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import {
-  Loader2,
-  RefreshCw,
-  ShieldAlert,
-  Shield,
-  Flag,
-  Trophy,
-} from "lucide-react";
+import { Loader2, RefreshCw, ShieldAlert, Shield, Flag, Trophy } from "lucide-react";
 import type { Tournament } from "@/lib/scoring";
 
 export const Route = createFileRoute("/_authenticated/admin")({
@@ -112,7 +105,7 @@ function AdminPage() {
     setSyncingResults(true);
     try {
       const { data, error } = await supabase.functions.invoke("sync-results", {
-        body: selectedId ? { tournament_id: selectedId } : {},
+        body: selectedId ? { tournament_id: selectedId, force: true } : { force: true },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -171,7 +164,11 @@ function AdminPage() {
         {accessError && (
           <p className="mt-2 break-words font-mono text-xs text-red-600">{accessError}</p>
         )}
-        <Button className="mt-4" variant="outline" onClick={() => user && checkAdminAccess(user.id)}>
+        <Button
+          className="mt-4"
+          variant="outline"
+          onClick={() => user && checkAdminAccess(user.id)}
+        >
           Retry access check
         </Button>
       </Card>
@@ -274,7 +271,8 @@ function AdminPage() {
                   <td className="px-3 py-2 font-mono text-xs">{t.start_date ?? "—"}</td>
                   <td className="px-3 py-2 text-xs capitalize">{t.event_type}</td>
                   <td className="px-3 py-2 font-mono text-xs">
-                    ×{Number.isInteger(Number(t.fedex_multiplier))
+                    ×
+                    {Number.isInteger(Number(t.fedex_multiplier))
                       ? Number(t.fedex_multiplier)
                       : Number(t.fedex_multiplier).toFixed(1)}
                   </td>
@@ -288,14 +286,16 @@ function AdminPage() {
         {selected && (
           <p className="text-xs text-muted-foreground">
             Selected: <span className="font-medium text-foreground">{selected.name}</span> · lock{" "}
-            {selected.lineup_lock_at
-              ? new Date(selected.lineup_lock_at).toLocaleString()
-              : "unset"}
+            {selected.lineup_lock_at ? new Date(selected.lineup_lock_at).toLocaleString() : "unset"}
           </p>
         )}
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={syncResults} disabled={syncingResults || !selectedId} variant="secondary">
+          <Button
+            onClick={syncResults}
+            disabled={syncingResults || !selectedId}
+            variant="secondary"
+          >
             {syncingResults ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing…

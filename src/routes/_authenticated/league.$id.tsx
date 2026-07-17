@@ -165,15 +165,28 @@ function LeaguePage() {
     }
     loadEventStandings(selectedTournamentId);
 
+    let eventTimer: ReturnType<typeof setTimeout> | undefined;
+    let seasonTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleEventLoad = () => {
+      clearTimeout(eventTimer);
+      eventTimer = setTimeout(() => loadEventStandings(selectedTournamentId), 350);
+    };
+    const scheduleSeasonLoad = () => {
+      clearTimeout(seasonTimer);
+      seasonTimer = setTimeout(() => loadSeasonStandings(), 350);
+    };
+
     const channel = supabase
       .channel(`league-${id}-${selectedTournamentId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "lineups", filter: `league_id=eq.${id}` },
-        () => loadEventStandings(selectedTournamentId),
+        scheduleEventLoad,
       )
-      .on("postgres_changes", { event: "*", schema: "public", table: "lineup_entries" }, () =>
-        loadEventStandings(selectedTournamentId),
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lineup_entries" },
+        scheduleEventLoad,
       )
       .on(
         "postgres_changes",
@@ -183,16 +196,18 @@ function LeaguePage() {
           table: "player_results",
           filter: `tournament_id=eq.${selectedTournamentId}`,
         },
-        () => loadEventStandings(selectedTournamentId),
+        scheduleEventLoad,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "season_standings", filter: `league_id=eq.${id}` },
-        () => loadSeasonStandings(),
+        scheduleSeasonLoad,
       )
       .subscribe();
 
     return () => {
+      clearTimeout(eventTimer);
+      clearTimeout(seasonTimer);
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

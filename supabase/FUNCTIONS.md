@@ -37,19 +37,28 @@ Or run the SQL in `supabase/migrations/20260716182000_odds_pricing_fedex_scoring
 2. Open `/admin`.
 3. **Sync Tournament Odds** — schedule + field + salaries for the active PGA event.
 4. Members draft lineups before Thursday lock.
-5. During the event, **Sync Results** to update fantasy points / event leaderboard.
+5. During the event, members can use **Refresh live scores** from a lineup, or an admin can force **Sync Results**.
 6. After the event, **Finalize Event** to award FedEx-style season points.
+
+Member refreshes require league membership and are deduplicated by a two-minute
+per-tournament cooldown in `result_sync_state`. One refresh updates every lineup
+for the tournament; Supabase Realtime updates other open views.
+
+**Performance:** fantasy points are computed in the Edge Function (same formula as
+SQL `compute_fantasy_points`) so sync avoids ~150 sequential RPCs. DataGolf
+`/preds/in-play` (positions/scores) and ESPN hole-by-hole scorecards (live
+birdie/eagle counts) run in parallel. Live Open timing is ~2–3s for 156 players.
 
 ## Scoring (round-based)
 
-| Action | Points |
-|--------|--------|
-| Made cut | +10 |
-| Finish 1 / 2 / 3 | +50 / +40 / +35 |
+| Action                            | Points               |
+| --------------------------------- | -------------------- |
+| Made cut                          | +10                  |
+| Finish 1 / 2 / 3                  | +50 / +40 / +35      |
 | Finish 4–5 / 6–10 / 11–20 / 21–30 | +28 / +20 / +12 / +8 |
-| Made cut, outside top 30 | +4 |
-| Birdie / Eagle | +1 / +3 each |
-| Under par | +1 per stroke under |
+| Made cut, outside top 30          | +4                   |
+| Birdie / Eagle                    | +1 / +3 each         |
+| Under par                         | +1 per stroke under  |
 
 League finish → FedEx points from `fedex_payout` × `tournaments.fedex_multiplier` (standard `1.0`, signature `1.5`, major `2.0`).
 

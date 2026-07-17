@@ -6,24 +6,26 @@ Use this before inviting friends onto the shared Lovable + Supabase project.
 
 - **App:** Lovable published site (commits on `main` sync to Lovable).
 - **Backend:** Hosted Supabase project `lkfdqzjoeigiwakhtsig`.
-- You remain the only **admin** for Sync Odds / Sync Results / Finalize Event.
+- You remain the only **admin** for Sync Odds / Finalize Event. Members can request throttled live result refreshes.
 
 Do **not** re-run `supabase/seed_weekend_golfers_demo.sql` on the shared prod DB during beta.
 
 ## Status (automated)
 
-| Step | Status |
-|------|--------|
-| Security migration applied (`friend_beta_security`) | Done |
-| Admin nav gated + `join_league_by_invite` client | Done (ship with next push) |
-| Edge functions redeployed (`sync-odds`, `sync-results`, `finalize-event`) | Done |
-| `DATAGOLF_API_KEY` secret present | Done |
-| Admin account (`akshayjchoksi@gmail.com`) | Done |
-| Clean league **Friend Beta** created | Done — invite code **`5744P5`** |
-| Live events with prices | The Open (in_progress), 3M Open (open) |
-| Prod OAuth allowlist on Lovable URL | **You** — see §2 |
-| Dry-run draft → Sync Results on a second account | **You** — see §4 |
-| Invite friends with code only | **You** — share `5744P5` |
+| Step                                                                      | Status                                 |
+| ------------------------------------------------------------------------- | -------------------------------------- |
+| Security migration applied (`friend_beta_security`)                       | Done                                   |
+| Admin nav gated + `join_league_by_invite` client                          | Done (ship with next push)             |
+| Edge functions redeployed (`sync-odds`, `sync-results`, `finalize-event`) | Done                                   |
+| `DATAGOLF_API_KEY` secret present                                         | Done                                   |
+| Member live refresh + two-minute cooldown                                 | Done — tested against The Open         |
+| Admin account (`akshayjchoksi@gmail.com`)                                 | Done                                   |
+| Clean league **Friend Beta** created                                      | Done — invite code **`5744P5`**        |
+| Live events with prices                                                   | The Open (in_progress), 3M Open (open) |
+| Prod OAuth allowlist on Lovable URL                                       | **You** — see §2                       |
+| Non-admin live sync integration test                                      | Done — 156 Open players, 6 lineups     |
+| Dry-run Google OAuth + draft on a second account                          | **You** — see §4                       |
+| Invite friends with code only                                             | **You** — share `5744P5`               |
 
 Verify anytime: [`supabase/friend_beta_verify.sql`](supabase/friend_beta_verify.sql)
 
@@ -93,16 +95,16 @@ League ready: **Friend Beta** · invite code **`5744P5`**
 2. Complete §2 OAuth on the Lovable URL.
 3. Sign in as a **second** Google account, join with `5744P5`.
 4. Both set lineups for **3M Open** (status `open`, unlocked) or view The Open after lock.
-5. **Sync Results** once → check event leaderboard + lineup viewer.
+5. Open an in-progress lineup and click **Refresh live scores** → check the leaderboard and lineup viewer.
 6. Invite the rest of the group with **`5744P5` only** (codes are no longer browsable by all signed-in users).
 
 ### Operator runbook during the event
 
-| When | Action |
-|------|--------|
-| Before Thursday lock | Sync Odds (if field/odds change) |
-| During tournament | Sync Results periodically for live points |
-| After event completes | Finalize Event for season points |
+| When                  | Action                                                             |
+| --------------------- | ------------------------------------------------------------------ |
+| Before Thursday lock  | Sync Odds (if field/odds change)                                   |
+| During tournament     | Any member can refresh from a lineup; admin can force Sync Results |
+| After event completes | Finalize Event for season points                                   |
 
 ---
 

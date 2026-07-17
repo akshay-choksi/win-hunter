@@ -2,8 +2,10 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { ArrowLeft, Lock } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Lock, RefreshCw } from "lucide-react";
 import { GolferAvatar } from "@/components/golfer-avatar";
+import { toast } from "sonner";
 import {
   breakdownFantasyPoints,
   formatAmericanOdds,
@@ -65,6 +67,8 @@ function LineupViewerPage() {
   const [lineupTotal, setLineupTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const isOwn = user?.id === userId;
   const locked = tournament ? isLineupLocked(tournament) : false;
@@ -119,6 +123,13 @@ function LineupViewerPage() {
       return;
     }
 
+    const { data: syncState } = await supabase
+      .from("result_sync_state")
+      .select("last_completed_at")
+      .eq("tournament_id", active.id)
+      .maybeSingle();
+    setLastSyncedAt(syncState?.last_completed_at ?? null);
+
     const viewingOthers = user?.id !== userId;
     if (viewingOthers && !isLineupLocked(active)) {
       setForbidden(true);
@@ -160,11 +171,15 @@ function LineupViewerPage() {
             .select("golfer_id, salary, decimal_odds")
             .eq("tournament_id", active.id)
             .in("golfer_id", golferIds)
-        : Promise.resolve({ data: [] as { golfer_id: string; salary: number; decimal_odds: number | null }[] }),
+        : Promise.resolve({
+            data: [] as { golfer_id: string; salary: number; decimal_odds: number | null }[],
+          }),
       golferIds.length
         ? supabase
             .from("player_results")
-            .select("golfer_id, position, total_to_par, fantasy_points, made_cut, status, birdies, eagles")
+            .select(
+              "golfer_id, position, total_to_par, fantasy_points, made_cut, status, birdies, eagles",
+            )
             .eq("tournament_id", active.id)
             .in("golfer_id", golferIds)
         : Promise.resolve({
@@ -219,6 +234,29 @@ function LineupViewerPage() {
     setLoading(false);
   }
 
+  async function refreshLiveScores() {
+    if (!tournament || refreshing) return;
+    setRefreshing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-results", {
+        body: { tournament_id: tournament.id, league_id: leagueId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setLastSyncedAt(data?.lastSyncedAt ?? new Date().toISOString());
+      await load();
+      toast.success(data?.cached ? "Scores are already current" : "Live scores refreshed", {
+        description: data?.message,
+      });
+    } catch (err) {
+      toast.error("Could not refresh scores", {
+        description: err instanceof Error ? err.message : "Try again in a moment.",
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -226,6 +264,11 @@ function LineupViewerPage() {
 
   useEffect(() => {
     if (!tournament) return;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleLoad = () => {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => load(), 350);
+    };
     const channel = supabase
       .channel(`lineup-view-${leagueId}-${userId}-${tournament.id}`)
       .on(
@@ -236,15 +279,16 @@ function LineupViewerPage() {
           table: "player_results",
           filter: `tournament_id=eq.${tournament.id}`,
         },
-        () => load(),
+        scheduleLoad,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "lineups", filter: `league_id=eq.${leagueId}` },
-        () => load(),
+        scheduleLoad,
       )
       .subscribe();
     return () => {
+      clearTimeout(refreshTimer);
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -296,12 +340,36 @@ function LineupViewerPage() {
       </Link>
 
       <div className="rounded-lg bg-slate-900 px-5 py-5 text-white">
-        <p className="text-xs uppercase tracking-wide text-slate-400">
-          {isOwn ? "Your lineup" : "Member lineup"}
-        </p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">{ownerName}</h1>
-        <p className="mt-1 text-sm text-slate-300">{tournament?.name ?? "No event"}</p>
-        <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              {isOwn ? "Your lineup" : "Member lineup"}
+            </p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">{ownerName}</h1>
+            <p className="mt-1 text-sm text-slate-300">{tournament?.name ?? "No event"}</p>
+            <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
+          </div>
+          {tournament?.status === "in_progress" ? (
+            <div className="text-right">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={refreshLiveScores}
+                disabled={refreshing}
+                className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white"
+              >
+                <RefreshCw className={refreshing ? "animate-spin" : ""} />
+                {refreshing ? "Refreshing…" : "Refresh live scores"}
+              </Button>
+              <p className="mt-1.5 text-[11px] text-slate-400">
+                {lastSyncedAt
+                  ? `Updated ${new Date(lastSyncedAt).toLocaleTimeString()}`
+                  : "Uses live DataGolf results"}
+              </p>
+            </div>
+          ) : null}
+        </div>
         <div className="mt-4 flex flex-wrap gap-6">
           <div>
             <div className="text-xs uppercase text-slate-400">Lineup points</div>
@@ -334,7 +402,6 @@ function LineupViewerPage() {
                     <th className="px-3 py-2 text-right">Finish</th>
                     <th className="px-3 py-2 text-right">Birdies</th>
                     <th className="px-3 py-2 text-right">Eagles</th>
-                    <th className="px-3 py-2 text-right">Under</th>
                     <th className="px-4 py-2 text-right">Pts</th>
                   </tr>
                 </thead>
@@ -368,7 +435,9 @@ function LineupViewerPage() {
                           {formatToPar(r.total_to_par)}
                         </td>
                         <td className="px-3 py-3 text-right font-mono text-slate-600">{bd.cut}</td>
-                        <td className="px-3 py-3 text-right font-mono text-slate-600">{bd.finish}</td>
+                        <td className="px-3 py-3 text-right font-mono text-slate-600">
+                          {bd.finish}
+                        </td>
                         <td className="px-3 py-3 text-right font-mono text-slate-600">
                           {bd.birdieCount}
                           <span className="ml-1 text-xs text-slate-400">({bd.birdies})</span>
@@ -377,7 +446,6 @@ function LineupViewerPage() {
                           {bd.eagleCount}
                           <span className="ml-1 text-xs text-slate-400">({bd.eagles})</span>
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-slate-600">{bd.underPar}</td>
                         <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-700">
                           {pts.toFixed(1)}
                         </td>
@@ -388,7 +456,7 @@ function LineupViewerPage() {
                 <tfoot>
                   <tr className="border-t bg-slate-50">
                     <td
-                      colSpan={8}
+                      colSpan={7}
                       className="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500"
                     >
                       Total

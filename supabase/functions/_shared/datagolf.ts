@@ -35,33 +35,34 @@ export function adminClient(): SupabaseClient {
   });
 }
 
-export async function requireAdmin(req: Request): Promise<{ userId: string }> {
+export async function requireUser(req: Request): Promise<{ userId: string }> {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) throw new Error("Missing Authorization header");
 
-  const userClient = createClient(
-    getEnv("SUPABASE_URL"),
-    getAnonKey(),
-    {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false, autoRefreshToken: false },
-    },
-  );
+  const userClient = createClient(getEnv("SUPABASE_URL"), getAnonKey(), {
+    global: { headers: { Authorization: authHeader } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   const { data: authData, error: authError } = await userClient.auth.getUser();
   if (authError || !authData.user) throw new Error("Unauthorized");
 
+  return { userId: authData.user.id };
+}
+
+export async function requireAdmin(req: Request): Promise<{ userId: string }> {
+  const { userId } = await requireUser(req);
   const admin = adminClient();
   const { data: profile, error: profileError } = await admin
     .from("profiles")
     .select("is_admin")
-    .eq("id", authData.user.id)
+    .eq("id", userId)
     .maybeSingle();
 
   if (profileError) throw new Error(profileError.message);
   if (!profile?.is_admin) throw new Error("Admins only");
 
-  return { userId: authData.user.id };
+  return { userId };
 }
 
 export const DATAGOLF_BASE = "https://feeds.datagolf.com";
@@ -120,9 +121,7 @@ export function classifyEvent(name: string): "standard" | "signature" | "major" 
 }
 
 /** Season-point multiplier from event type: standard 1×, signature 1.5×, major 2×. */
-export function multiplierForEventType(
-  eventType: "standard" | "signature" | "major",
-): number {
+export function multiplierForEventType(eventType: "standard" | "signature" | "major"): number {
   if (eventType === "major") return 2;
   if (eventType === "signature") return 1.5;
   return 1;
@@ -137,10 +136,7 @@ export function thursdayLockAt(startDate: string | null | undefined): string | n
 }
 
 /** Parse a DataGolf tee time into an ISO timestamp; returns null if unparseable. */
-export function parseTeeTime(
-  raw: unknown,
-  fallbackDate?: string | null,
-): string | null {
+export function parseTeeTime(raw: unknown, fallbackDate?: string | null): string | null {
   if (raw == null) return null;
   if (typeof raw === "number" && Number.isFinite(raw)) {
     // Unix seconds or ms
@@ -185,8 +181,7 @@ export function earliestTeeLockAt(
 ): string | null {
   let earliest: number | null = null;
   for (const p of players) {
-    const raw =
-      p.tee_time ?? p.teetime ?? p.r1_tee_time ?? p.r1_teetime ?? p.teeTime;
+    const raw = p.tee_time ?? p.teetime ?? p.r1_tee_time ?? p.r1_teetime ?? p.teeTime;
     const iso = parseTeeTime(raw, startDate);
     if (!iso) continue;
     const ms = new Date(iso).getTime();
@@ -279,4 +274,40 @@ export function parseToPar(raw: unknown): number | null {
   if (!s || s === "E" || s === "EVEN") return 0;
   const n = Number(s.replace("+", ""));
   return Number.isFinite(n) ? Math.trunc(n) : null;
+}
+
+/**
+ * Local fantasy scoring — mirrors SQL `compute_fantasy_points`.
+ * Keep in the Edge Function so sync-results does not pay for one RPC per golfer.
+ */
+export function computeFantasyPoints(input: {
+  position: number | null;
+  madeCut: boolean;
+  totalToPar: number | null;
+  birdies?: number;
+  eagles?: number;
+}): number {
+  let pts = input.madeCut ? 10 : 0;
+
+  if (input.position != null) {
+    if (input.position === 1) pts += 50;
+    else if (input.position === 2) pts += 40;
+    else if (input.position === 3) pts += 35;
+    else if (input.position >= 4 && input.position <= 5) pts += 28;
+    else if (input.position >= 6 && input.position <= 10) pts += 20;
+    else if (input.position >= 11 && input.position <= 20) pts += 12;
+    else if (input.position >= 21 && input.position <= 30) pts += 8;
+    else if (input.madeCut) pts += 4;
+  } else if (input.madeCut) {
+    pts += 4;
+  }
+
+  pts += Math.max(input.birdies ?? 0, 0);
+  pts += Math.max(input.eagles ?? 0, 0) * 3;
+
+  if (input.totalToPar != null && input.totalToPar < 0) {
+    pts += Math.abs(input.totalToPar);
+  }
+
+  return pts;
 }

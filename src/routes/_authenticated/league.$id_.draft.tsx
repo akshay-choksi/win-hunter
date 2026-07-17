@@ -138,7 +138,10 @@ function DraftPage() {
           .eq("tournament_id", tournament.id);
 
         const priceById = new Map(
-          (prices ?? []).map((p) => [p.golfer_id, { salary: p.salary, decimal_odds: p.decimal_odds }]),
+          (prices ?? []).map((p) => [
+            p.golfer_id,
+            { salary: p.salary, decimal_odds: p.decimal_odds },
+          ]),
         );
 
         const rostered = (entries ?? [])
@@ -290,6 +293,7 @@ function DraftPage() {
             <Link
               to="/league/$id/lineup/$userId"
               params={{ id: leagueId, userId: user.id }}
+              search={{ tournament: tournament.id }}
               className="mt-4 inline-block"
             >
               <Button>
@@ -349,10 +353,7 @@ function DraftPage() {
         {Array.from({ length: rosterSize }).map((_, i) => {
           const g = roster[i];
           return g ? (
-            <div
-              key={g.id}
-              className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0"
-            >
+            <div key={g.id} className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0">
               <GolferAvatar name={g.name} pgaPlayerNum={g.pga_player_num} />
               <div className="min-w-0 flex-1">
                 <div className="truncate font-semibold text-slate-900">{g.name}</div>
@@ -478,10 +479,16 @@ function DraftPage() {
             <div className="text-xs uppercase text-slate-400">Rem Salary</div>
             <div
               className={`font-mono text-lg font-bold ${
-                overCap ? "text-red-400" : remaining === 0 && complete ? "text-emerald-400" : "text-white"
+                overCap
+                  ? "text-red-400"
+                  : remaining === 0 && complete
+                    ? "text-emerald-400"
+                    : "text-white"
               }`}
             >
-              {overCap ? `-$${Math.abs(remaining).toLocaleString()}` : `$${remaining.toLocaleString()}`}
+              {overCap
+                ? `-$${Math.abs(remaining).toLocaleString()}`
+                : `$${remaining.toLocaleString()}`}
             </div>
           </div>
           <div className="text-right">

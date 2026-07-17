@@ -365,6 +365,41 @@ export type Database = {
         }
         Relationships: []
       }
+      result_sync_state: {
+        Row: {
+          last_completed_at: string | null
+          last_error: string | null
+          last_started_at: string
+          last_status: string
+          tournament_id: string
+          updated_at: string
+        }
+        Insert: {
+          last_completed_at?: string | null
+          last_error?: string | null
+          last_started_at?: string
+          last_status?: string
+          tournament_id: string
+          updated_at?: string
+        }
+        Update: {
+          last_completed_at?: string | null
+          last_error?: string | null
+          last_started_at?: string
+          last_status?: string
+          tournament_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "result_sync_state_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: true
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       season_standings: {
         Row: {
           events_played: number
@@ -451,6 +486,10 @@ export type Database = {
     }
     Functions: {
       am_i_admin: { Args: never; Returns: boolean }
+      claim_result_sync: {
+        Args: { _cooldown_seconds?: number; _tournament_id: string }
+        Returns: boolean
+      }
       compute_fantasy_points: {
         Args: {
           _birdies: number

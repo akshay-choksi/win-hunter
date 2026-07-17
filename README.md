@@ -31,7 +31,6 @@ League home: live standings, event selector, season multipliers, and your points
 
 <img width="1383" height="755" alt="Screenshot 2026-07-17 at 11 17 06 AM" src="https://github.com/user-attachments/assets/cab6c527-fa73-48d4-bee6-095fc4e53002" />
 
-
 ### Live lineup scoring
 
 Member lineup viewer: navy summary card, per-golfer breakdown, live fantasy points.
@@ -46,13 +45,13 @@ https://github.com/user-attachments/assets/67b719d7-fa95-4521-9e5a-b84f4e0fc78a
 
 ## Stack
 
-| Layer | Choice |
-|-------|--------|
-| UI | React 19, TypeScript, Vite, TanStack Start / Router |
-| Components | shadcn/ui (Radix), Tailwind CSS v4 design tokens (`primary` green, `navy`, `success`) |
-| App chrome | Sticky `AppHeader`, `PageHeader`, `StatCard`, `SurfacePanel`, `StatusBadge` |
-| Backend | [Supabase](https://supabase.com) (hosted Postgres + Auth + Edge Functions + Realtime) |
-| Golf data | [DataGolf](https://datagolf.com/) HTTP API (schedule, field, odds, in-play) |
+| Layer            | Choice                                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------------- |
+| UI               | React 19, TypeScript, Vite, TanStack Start / Router                                                      |
+| Components       | shadcn/ui (Radix), Tailwind CSS v4 design tokens (`primary` green, `navy`, `success`)                    |
+| App chrome       | Sticky `AppHeader`, `PageHeader`, `StatCard`, `SurfacePanel`, `StatusBadge`                              |
+| Backend          | [Supabase](https://supabase.com) (hosted Postgres + Auth + Edge Functions + Realtime)                    |
+| Golf data        | [DataGolf](https://datagolf.com/) HTTP API (schedule, field, odds, in-play)                              |
 | Hosting / editor | Connected to [Lovable](https://lovable.dev) (avoid force-pushing rewritten history on the synced branch) |
 
 ### TypeScript
@@ -66,15 +65,15 @@ The whole app is TypeScript end-to-end:
 
 ### Supabase features used
 
-| Feature | How WinHunters uses it |
-|---------|------------------------|
-| **Auth** | Google OAuth (and session cookies) for signed-in leagues |
-| **Postgres** | Leagues, members, tournaments, golfers, prices, lineups, results, season standings |
-| **Row Level Security (RLS)** | Members see co-members’ data; lineup edits locked after tee; admin writes gated |
-| **Database functions / triggers** | `is_league_member`, `compute_fantasy_points`, lineup lock enforcement, creator auto-join |
-| **Realtime** | `postgres_changes` on `lineups`, `lineup_entries`, `player_results`, `season_standings` so boards refresh without polling |
-| **Edge Functions** | `sync-odds`, `sync-results`, `finalize-event` (service role + admin check) |
-| **Secrets** | `DATAGOLF_API_KEY` stored as an Edge Function secret (never in the Vite client) |
+| Feature                           | How WinHunters uses it                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Auth**                          | Google OAuth (and session cookies) for signed-in leagues                                                                  |
+| **Postgres**                      | Leagues, members, tournaments, golfers, prices, lineups, results, season standings                                        |
+| **Row Level Security (RLS)**      | Members see co-members’ data; lineup edits locked after tee; admin writes gated                                           |
+| **Database functions / triggers** | `is_league_member`, `compute_fantasy_points`, lineup lock enforcement, creator auto-join                                  |
+| **Realtime**                      | `postgres_changes` on `lineups`, `lineup_entries`, `player_results`, `season_standings` so boards refresh without polling |
+| **Edge Functions**                | `sync-odds`, `sync-results`, `finalize-event` (service role + admin check)                                                |
+| **Secrets**                       | `DATAGOLF_API_KEY` stored as an Edge Function secret (never in the Vite client)                                           |
 
 ### DataGolf API
 
@@ -172,8 +171,8 @@ Then open `/admin` → **Sync Tournament Odds**.
 
 1. **Create / join a league** (invite code, $50k / 6 golfers by default).
 2. **Draft** a lineup before `lineup_lock_at` (first tee / Thursday). Over-budget adds are blocked.
-3. **Event leaderboard** ranks lineup fantasy points (realtime after Sync Results).
-4. **Lineup viewer** shows per-golfer live breakdown: cut, finish, birdies, eagles, under-par, total.
+3. **Event leaderboard** ranks lineup fantasy points and updates through Supabase Realtime.
+4. **Lineup viewer** shows the live per-golfer breakdown and lets league members request a DataGolf refresh during an event.
 5. **Finalize Event** awards season points from league finish × event multiplier (standard 1× / signature 1.5× / major 2×).
 
 Fantasy scoring (round-based): made cut +10; finish bonuses; birdie +1; eagle +3; under-par +1 per stroke.
@@ -200,19 +199,21 @@ docs/screenshots/   # README preview assets (optional local copies)
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Vite dev server (port **8080**) |
-| `npm run build` | Production build |
-| `npm run preview` | Preview production build |
-| `npm run lint` | ESLint |
-| `npm run format` | Prettier |
+| Command           | Description                     |
+| ----------------- | ------------------------------- |
+| `npm run dev`     | Vite dev server (port **8080**) |
+| `npm run build`   | Production build                |
+| `npm run preview` | Preview production build        |
+| `npm run lint`    | ESLint                          |
+| `npm run format`  | Prettier                        |
 
 ---
 
 ## Notes
 
+- **Hosting:** see [`HOSTING.md`](HOSTING.md) for Lovable Free-plan limits, production redirects, live refresh behavior, and Cloudflare deployment.
 - **Friend beta:** follow [`FRIEND_BETA.md`](FRIEND_BETA.md) (OAuth allowlist, security migration, DataGolf ops, dry-run before invites).
-- **Live UI vs live data:** Supabase Realtime refreshes the client when `player_results` / `lineups` change. Pulling DataGolf still requires **Sync Results** (or a future cron).
+- **Live results:** members can request a live DataGolf refresh from an in-progress lineup. A two-minute tournament cooldown deduplicates requests; Realtime updates every open view.
+- **Sync performance win:** `sync-results` used to take ~16s on The Open because it issued one Postgres RPC per golfer (~156) plus sequential DataGolf calls. It now scores fantasy points in the Edge Function (mirroring SQL `compute_fantasy_points`), fetches DataGolf in-play + ESPN hole-by-hole birdie/eagle counts in parallel, and rolls up lineup totals from in-memory results — measured at ~2–3s for 156 players / 6 lineups on live Open data.
 - **Demo seed:** [`supabase/seed_weekend_golfers_demo.sql`](supabase/seed_weekend_golfers_demo.sql) can populate a sample league for UI demos — **do not** re-run on shared prod during friend beta.
 - Prefer not rewriting published git history on the Lovable-connected branch (no force-push / rebase of shared commits).

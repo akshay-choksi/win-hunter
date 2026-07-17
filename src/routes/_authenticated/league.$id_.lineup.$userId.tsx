@@ -35,6 +35,11 @@ type GolferRow = {
   status: string | null;
   birdies: number;
   eagles: number;
+  pars: number;
+  bogeys: number;
+  double_bogeys: number;
+  double_eagles: number;
+  bonus_points: number;
 };
 
 function formatToPar(n: number | null): string {
@@ -52,6 +57,24 @@ function formatPos(pos: number | null, status: string | null): string {
 function formatOwgr(rank: number | null | undefined): string {
   if (rank == null || !Number.isFinite(rank)) return "OWGR —";
   return `OWGR ${rank}`;
+}
+
+function formatPts(n: number): string {
+  if (n === 0) return "0";
+  const rounded = Number.isInteger(n) ? String(n) : n.toFixed(1);
+  return n > 0 ? `+${rounded}` : rounded;
+}
+
+/** Display count + points for hole/place breakdown cells. */
+function StatPts({ count, pts }: { count?: number; pts: number }) {
+  return (
+    <span className="inline-flex flex-col items-end gap-0.5 leading-tight">
+      {count != null ? <span className="font-mono text-slate-800">{count}</span> : null}
+      <span className={`font-mono text-xs ${pts < 0 ? "text-red-600" : "text-emerald-700/80"}`}>
+        {formatPts(pts)}
+      </span>
+    </span>
+  );
 }
 
 function LineupViewerPage() {
@@ -178,7 +201,7 @@ function LineupViewerPage() {
         ? supabase
             .from("player_results")
             .select(
-              "golfer_id, position, total_to_par, fantasy_points, made_cut, status, birdies, eagles",
+              "golfer_id, position, total_to_par, fantasy_points, made_cut, status, birdies, eagles, pars, bogeys, double_bogeys, double_eagles, bonus_points",
             )
             .eq("tournament_id", active.id)
             .in("golfer_id", golferIds)
@@ -192,6 +215,11 @@ function LineupViewerPage() {
               status: string | null;
               birdies: number;
               eagles: number;
+              pars: number;
+              bogeys: number;
+              double_bogeys: number;
+              double_eagles: number;
+              bonus_points: number;
             }[],
           }),
     ]);
@@ -222,6 +250,11 @@ function LineupViewerPage() {
         status: res?.status ?? null,
         birdies: Number(res?.birdies ?? 0),
         eagles: Number(res?.eagles ?? 0),
+        pars: Number(res?.pars ?? 0),
+        bogeys: Number(res?.bogeys ?? 0),
+        double_bogeys: Number(res?.double_bogeys ?? 0),
+        double_eagles: Number(res?.double_eagles ?? 0),
+        bonus_points: Number(res?.bonus_points ?? 0),
       };
     });
 
@@ -392,16 +425,19 @@ function LineupViewerPage() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
+              <table className="w-full min-w-[900px] text-sm">
                 <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
                   <tr>
                     <th className="px-4 py-2">Golfer</th>
                     <th className="px-3 py-2 text-right">Pos</th>
                     <th className="px-3 py-2 text-right">Score</th>
-                    <th className="px-3 py-2 text-right">Cut</th>
-                    <th className="px-3 py-2 text-right">Finish</th>
+                    <th className="px-3 py-2 text-right">Place</th>
                     <th className="px-3 py-2 text-right">Birdies</th>
                     <th className="px-3 py-2 text-right">Eagles</th>
+                    <th className="px-3 py-2 text-right">Pars</th>
+                    <th className="px-3 py-2 text-right">Bogeys</th>
+                    <th className="px-3 py-2 text-right">Dbl+</th>
+                    <th className="px-3 py-2 text-right">Bonus</th>
                     <th className="px-4 py-2 text-right">Pts</th>
                   </tr>
                 </thead>
@@ -409,12 +445,17 @@ function LineupViewerPage() {
                   {rows.map((r) => {
                     const bd = breakdownFantasyPoints({
                       position: r.position,
-                      madeCut: r.made_cut,
-                      totalToPar: r.total_to_par,
-                      birdies: r.birdies,
+                      doubleEagles: r.double_eagles,
                       eagles: r.eagles,
+                      birdies: r.birdies,
+                      pars: r.pars,
+                      bogeys: r.bogeys,
+                      doubleBogeys: r.double_bogeys,
+                      bonusPoints: r.bonus_points,
                     });
                     const pts = r.fantasy_points || bd.total;
+                    const eagleCount = bd.eagleCount + bd.doubleEagleCount;
+                    const eaglePts = bd.eaglePts + bd.doubleEaglePts;
                     return (
                       <tr key={r.golfer_id} className="border-t">
                         <td className="px-4 py-3">
@@ -434,17 +475,26 @@ function LineupViewerPage() {
                         <td className="px-3 py-3 text-right font-mono text-slate-600">
                           {formatToPar(r.total_to_par)}
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-slate-600">{bd.cut}</td>
-                        <td className="px-3 py-3 text-right font-mono text-slate-600">
-                          {bd.finish}
+                        <td className="px-3 py-3 text-right">
+                          <StatPts pts={bd.finish} />
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-slate-600">
-                          {bd.birdieCount}
-                          <span className="ml-1 text-xs text-slate-400">({bd.birdies})</span>
+                        <td className="px-3 py-3 text-right">
+                          <StatPts count={bd.birdieCount} pts={bd.birdiePts} />
                         </td>
-                        <td className="px-3 py-3 text-right font-mono text-slate-600">
-                          {bd.eagleCount}
-                          <span className="ml-1 text-xs text-slate-400">({bd.eagles})</span>
+                        <td className="px-3 py-3 text-right">
+                          <StatPts count={eagleCount} pts={eaglePts} />
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <StatPts count={bd.parCount} pts={bd.parPts} />
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <StatPts count={bd.bogeyCount} pts={bd.bogeyPts} />
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <StatPts count={bd.doubleBogeyCount} pts={bd.doubleBogeyPts} />
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <StatPts pts={bd.bonusPoints} />
                         </td>
                         <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-700">
                           {pts.toFixed(1)}
@@ -456,7 +506,7 @@ function LineupViewerPage() {
                 <tfoot>
                   <tr className="border-t bg-slate-50">
                     <td
-                      colSpan={7}
+                      colSpan={10}
                       className="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500"
                     >
                       Total
@@ -469,8 +519,8 @@ function LineupViewerPage() {
               </table>
             </div>
             <p className="border-t px-4 py-3 text-xs text-slate-500">
-              Cut +10 · Birdie +1 · Eagle +3 · Under-par +1/stroke · Finish by place (1st +50 … made
-              cut +4). Updates live when scores sync.
+              Each column shows count (when applicable) and points earned. DK Classic: Eagle +8 ·
+              Birdie +3 · Par +0.5 · Bogey −0.5 · Double+ −1 · Place live (1st +30 … 50th +1).
             </p>
           </>
         )}

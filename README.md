@@ -175,7 +175,7 @@ Then open `/admin` → **Sync Tournament Odds**.
 4. **Lineup viewer** shows the live per-golfer breakdown and lets league members request a DataGolf refresh during an event.
 5. **Finalize Event** awards season points from league finish × event multiplier (standard 1× / signature 1.5× / major 2×).
 
-Fantasy scoring (round-based): made cut +10; finish bonuses; birdie +1; eagle +3; under-par +1 per stroke.
+Fantasy scoring follows **DraftKings Classic Golf**: hole points (eagle +8, birdie +3, par +0.5, bogey −0.5, double+ −1), live place bonuses (1st +30 … 50th +1), plus DK streaks/bonuses. Place points update on every live score refresh.
 
 ---
 
@@ -214,6 +214,6 @@ docs/screenshots/   # README preview assets (optional local copies)
 - **Hosting:** see [`HOSTING.md`](HOSTING.md) for Lovable Free-plan limits, production redirects, live refresh behavior, and Cloudflare deployment.
 - **Friend beta:** follow [`FRIEND_BETA.md`](FRIEND_BETA.md) (OAuth allowlist, security migration, DataGolf ops, dry-run before invites).
 - **Live results:** members can request a live DataGolf refresh from an in-progress lineup. A two-minute tournament cooldown deduplicates requests; Realtime updates every open view.
-- **Sync performance win:** `sync-results` used to take ~16s on The Open because it issued one Postgres RPC per golfer (~156) plus sequential DataGolf calls. It now scores fantasy points in the Edge Function (mirroring SQL `compute_fantasy_points`), fetches DataGolf in-play + ESPN hole-by-hole birdie/eagle counts in parallel, and rolls up lineup totals from in-memory results — measured at ~2–3s for 156 players / 6 lineups on live Open data.
+- **Sync performance win:** `sync-results` scores DraftKings Classic fantasy points in the Edge Function (mirroring SQL `compute_fantasy_points`), fetches DataGolf in-play + ESPN hole-by-hole tallies in parallel, and rolls up lineup totals from in-memory results — typically ~2–3s for 156 players on live Open data.
 - **Demo seed:** [`supabase/seed_weekend_golfers_demo.sql`](supabase/seed_weekend_golfers_demo.sql) can populate a sample league for UI demos — **do not** re-run on shared prod during friend beta.
 - Prefer not rewriting published git history on the Lovable-connected branch (no force-push / rebase of shared commits).

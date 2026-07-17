@@ -276,38 +276,68 @@ export function parseToPar(raw: unknown): number | null {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
+/** DraftKings Classic Golf hole values (mirrors SQL compute_fantasy_points). */
+export const DK_HOLE = {
+  doubleEagle: 13,
+  eagle: 8,
+  birdie: 3,
+  par: 0.5,
+  bogey: -0.5,
+  doubleBogeyOrWorse: -1,
+} as const;
+
+/** Live place points from current leaderboard position (DK Classic). */
+export function finishPoints(position: number | null): number {
+  if (position == null || position < 1) return 0;
+  if (position === 1) return 30;
+  if (position === 2) return 20;
+  if (position === 3) return 18;
+  if (position === 4) return 16;
+  if (position === 5) return 14;
+  if (position === 6) return 12;
+  if (position === 7) return 10;
+  if (position === 8) return 9;
+  if (position === 9) return 8;
+  if (position === 10) return 7;
+  if (position >= 11 && position <= 15) return 6;
+  if (position >= 16 && position <= 20) return 5;
+  if (position >= 21 && position <= 25) return 4;
+  if (position >= 26 && position <= 30) return 3;
+  if (position >= 31 && position <= 40) return 2;
+  if (position >= 41 && position <= 50) return 1;
+  return 0;
+}
+
 /**
- * Local fantasy scoring — mirrors SQL `compute_fantasy_points`.
+ * Local fantasy scoring — DraftKings Classic Golf.
  * Keep in the Edge Function so sync-results does not pay for one RPC per golfer.
  */
 export function computeFantasyPoints(input: {
   position: number | null;
-  madeCut: boolean;
-  totalToPar: number | null;
-  birdies?: number;
+  doubleEagles?: number;
   eagles?: number;
+  birdies?: number;
+  pars?: number;
+  bogeys?: number;
+  doubleBogeys?: number;
+  bonusPoints?: number;
 }): number {
-  let pts = input.madeCut ? 10 : 0;
+  const doubleEagles = Math.max(input.doubleEagles ?? 0, 0);
+  const eagles = Math.max(input.eagles ?? 0, 0);
+  const birdies = Math.max(input.birdies ?? 0, 0);
+  const pars = Math.max(input.pars ?? 0, 0);
+  const bogeys = Math.max(input.bogeys ?? 0, 0);
+  const doubleBogeys = Math.max(input.doubleBogeys ?? 0, 0);
+  const bonusPoints = Math.max(input.bonusPoints ?? 0, 0);
 
-  if (input.position != null) {
-    if (input.position === 1) pts += 50;
-    else if (input.position === 2) pts += 40;
-    else if (input.position === 3) pts += 35;
-    else if (input.position >= 4 && input.position <= 5) pts += 28;
-    else if (input.position >= 6 && input.position <= 10) pts += 20;
-    else if (input.position >= 11 && input.position <= 20) pts += 12;
-    else if (input.position >= 21 && input.position <= 30) pts += 8;
-    else if (input.madeCut) pts += 4;
-  } else if (input.madeCut) {
-    pts += 4;
-  }
-
-  pts += Math.max(input.birdies ?? 0, 0);
-  pts += Math.max(input.eagles ?? 0, 0) * 3;
-
-  if (input.totalToPar != null && input.totalToPar < 0) {
-    pts += Math.abs(input.totalToPar);
-  }
-
-  return pts;
+  return (
+    finishPoints(input.position) +
+    doubleEagles * DK_HOLE.doubleEagle +
+    eagles * DK_HOLE.eagle +
+    birdies * DK_HOLE.birdie +
+    pars * DK_HOLE.par +
+    bogeys * DK_HOLE.bogey +
+    doubleBogeys * DK_HOLE.doubleBogeyOrWorse +
+    bonusPoints
+  );
 }

@@ -8,7 +8,7 @@ import {
   parseToPar,
   requireUser,
 } from "../_shared/datagolf.ts";
-import { fetchEspnBirdieMap, lookupBirdieCounts } from "../_shared/espn.ts";
+import { fetchEspnHoleStatsMap, lookupHoleStats } from "../_shared/espn.ts";
 
 type InPlayPlayer = Record<string, unknown>;
 
@@ -132,14 +132,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // In-play positions/scores from DataGolf; birdie/eagle hole counts from ESPN
-    // (DataGolf live-hole-stats is field-wide hole distributions, not per player).
-    const [inPlayRaw, birdieMap] = await Promise.all([
+    // In-play positions/scores from DataGolf; hole tallies from ESPN scorecards.
+    const [inPlayRaw, holeStatsMap] = await Promise.all([
       dgFetch<unknown>("/preds/in-play", {
         tour: "pga",
         odds_format: "percent",
       }),
-      fetchEspnBirdieMap(tournament.name),
+      fetchEspnHoleStatsMap(tournament.name),
     ]);
 
     const players = extractInPlayPlayers(inPlayRaw);
@@ -234,6 +233,11 @@ Deno.serve(async (req) => {
       total_to_par: number | null;
       birdies: number;
       eagles: number;
+      pars: number;
+      bogeys: number;
+      double_bogeys: number;
+      double_eagles: number;
+      bonus_points: number;
       rounds: unknown;
       fantasy_points: number;
       status: string | null;
@@ -259,7 +263,7 @@ Deno.serve(async (req) => {
       const finalMadeCut = missedCut ? false : madeCut;
 
       const playerName = String(p.player_name ?? p.name ?? "");
-      const counts = lookupBirdieCounts(birdieMap, playerName);
+      const holes = lookupHoleStats(holeStatsMap, playerName);
       const rounds = {
         r1: p.R1 ?? p.r1 ?? null,
         r2: p.R2 ?? p.r2 ?? null,
@@ -269,13 +273,16 @@ Deno.serve(async (req) => {
         today: p.today ?? null,
       };
 
-      // Score in-process — avoids ~150 sequential Postgres RPCs per refresh.
+      // DK Classic — place points from live position so they rise/fall on refresh.
       const pts = computeFantasyPoints({
         position: missedCut ? null : pos,
-        madeCut: finalMadeCut,
-        totalToPar: toPar,
-        birdies: counts.birdies,
-        eagles: counts.eagles,
+        doubleEagles: holes.doubleEagles,
+        eagles: holes.eagles,
+        birdies: holes.birdies,
+        pars: holes.pars,
+        bogeys: holes.bogeys,
+        doubleBogeys: holes.doubleBogeys,
+        bonusPoints: holes.bonusPoints,
       });
 
       resultRows.push({
@@ -284,8 +291,13 @@ Deno.serve(async (req) => {
         position: missedCut ? null : pos,
         made_cut: finalMadeCut,
         total_to_par: toPar,
-        birdies: counts.birdies,
-        eagles: counts.eagles,
+        birdies: holes.birdies,
+        eagles: holes.eagles,
+        pars: holes.pars,
+        bogeys: holes.bogeys,
+        double_bogeys: holes.doubleBogeys,
+        double_eagles: holes.doubleEagles,
+        bonus_points: holes.bonusPoints,
         rounds,
         fantasy_points: pts,
         status: missedCut ? posText || statusRaw || "CUT" : statusRaw || null,

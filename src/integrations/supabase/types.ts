@@ -281,11 +281,16 @@ export type Database = {
       player_results: {
         Row: {
           birdies: number
+          bogeys: number
+          bonus_points: number
           created_at: string
+          double_bogeys: number
+          double_eagles: number
           eagles: number
           fantasy_points: number
           golfer_id: string
           made_cut: boolean
+          pars: number
           position: number | null
           rounds: Json
           status: string | null
@@ -295,11 +300,16 @@ export type Database = {
         }
         Insert: {
           birdies?: number
+          bogeys?: number
+          bonus_points?: number
           created_at?: string
+          double_bogeys?: number
+          double_eagles?: number
           eagles?: number
           fantasy_points?: number
           golfer_id: string
           made_cut?: boolean
+          pars?: number
           position?: number | null
           rounds?: Json
           status?: string | null
@@ -309,11 +319,16 @@ export type Database = {
         }
         Update: {
           birdies?: number
+          bogeys?: number
+          bonus_points?: number
           created_at?: string
+          double_bogeys?: number
+          double_eagles?: number
           eagles?: number
           fantasy_points?: number
           golfer_id?: string
           made_cut?: boolean
+          pars?: number
           position?: number | null
           rounds?: Json
           status?: string | null
@@ -492,11 +507,14 @@ export type Database = {
       }
       compute_fantasy_points: {
         Args: {
-          _birdies: number
-          _eagles: number
-          _made_cut: boolean
           _position: number
-          _total_to_par: number
+          _double_eagles?: number
+          _eagles?: number
+          _birdies?: number
+          _pars?: number
+          _bogeys?: number
+          _double_bogeys?: number
+          _bonus_points?: number
         }
         Returns: number
       }

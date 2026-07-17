@@ -44,21 +44,32 @@ Member refreshes require league membership and are deduplicated by a two-minute
 per-tournament cooldown in `result_sync_state`. One refresh updates every lineup
 for the tournament; Supabase Realtime updates other open views.
 
-**Performance:** fantasy points are computed in the Edge Function (same formula as
-SQL `compute_fantasy_points`) so sync avoids ~150 sequential RPCs. DataGolf
-`/preds/in-play` (positions/scores) and ESPN hole-by-hole scorecards (live
-birdie/eagle counts) run in parallel. Live Open timing is ~2–3s for 156 players.
+**Performance:** fantasy points are computed in the Edge Function (DraftKings Classic
+formula, same as SQL `compute_fantasy_points`) so sync avoids ~150 sequential RPCs.
+DataGolf `/preds/in-play` (live position/score) and ESPN hole-by-hole scorecards
+(hole tallies + bonuses) run in parallel. Place points recalculate from current
+leaderboard position on every refresh.
 
-## Scoring (round-based)
+## Scoring (DraftKings Classic Golf)
 
-| Action                            | Points               |
-| --------------------------------- | -------------------- |
-| Made cut                          | +10                  |
-| Finish 1 / 2 / 3                  | +50 / +40 / +35      |
-| Finish 4–5 / 6–10 / 11–20 / 21–30 | +28 / +20 / +12 / +8 |
-| Made cut, outside top 30          | +4                   |
-| Birdie / Eagle                    | +1 / +3 each         |
-| Under par                         | +1 per stroke under  |
+| Action | Points |
+| ------ | ------ |
+| Double eagle or better | +13 |
+| Eagle | +8 |
+| Birdie | +3 |
+| Par | +0.5 |
+| Bogey | −0.5 |
+| Double bogey or worse | −1 |
+| 1st / 2nd / 3rd (live place) | +30 / +20 / +18 |
+| 4th–10th | +16 … +7 |
+| 11–15 / 16–20 / 21–25 / 26–30 | +6 / +5 / +4 / +3 |
+| 31–40 / 41–50 | +2 / +1 |
+| 3-birdie streak (max 1/round) | +3 |
+| Bogey-free round | +3 |
+| Hole-in-one | +5 |
+| All 4 rounds under 70 | +5 |
+
+There is no flat made-cut bonus — making the cut matters because golfers play more holes.
 
 League finish → FedEx points from `fedex_payout` × `tournaments.fedex_multiplier` (standard `1.0`, signature `1.5`, major `2.0`).
 

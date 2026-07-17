@@ -6,6 +6,7 @@ import {
   earliestTeeLockAt,
   extractDecimalOdds,
   jsonResponse,
+  multiplierForEventType,
   oddsToSalaries,
   requireAdmin,
   thursdayLockAt,
@@ -73,7 +74,7 @@ Deno.serve(async (req) => {
         end_date: endDate,
         season_year: seasonYear,
         event_type: eventType,
-        fedex_multiplier: 1.0,
+        fedex_multiplier: multiplierForEventType(eventType),
         lineup_lock_at: lockAt,
       };
       // Always apply completed from DataGolf; for upcoming leave existing open/in_progress alone
@@ -148,6 +149,7 @@ Deno.serve(async (req) => {
       // Create from field meta if schedule missed it
       const dgEventId = fieldMeta.eventId ?? `field-${seasonYear}-${slugify(fieldMeta.eventName ?? "event")}`;
       const name = fieldMeta.eventName ?? `PGA Event ${dgEventId}`;
+      const eventType = classifyEvent(name);
       const { data, error } = await admin
         .from("tournaments")
         .upsert(
@@ -155,8 +157,8 @@ Deno.serve(async (req) => {
             dg_event_id: dgEventId,
             name,
             season_year: seasonYear,
-            event_type: classifyEvent(name),
-            fedex_multiplier: 1.0,
+            event_type: eventType,
+            fedex_multiplier: multiplierForEventType(eventType),
             status: "open",
             lineup_lock_at: lockFromTees ?? thursdayLockAt(fieldMeta.startDate),
             start_date: fieldMeta.startDate,

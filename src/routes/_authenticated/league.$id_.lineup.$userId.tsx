@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { ArrowLeft, Lock } from "lucide-react";
 import { GolferAvatar } from "@/components/golfer-avatar";
 import {
+  breakdownFantasyPoints,
   formatAmericanOdds,
   isLineupLocked,
   pickActiveTournament,
@@ -30,6 +31,8 @@ type GolferRow = {
   fantasy_points: number;
   made_cut: boolean;
   status: string | null;
+  birdies: number;
+  eagles: number;
 };
 
 function formatToPar(n: number | null): string {
@@ -161,7 +164,7 @@ function LineupViewerPage() {
       golferIds.length
         ? supabase
             .from("player_results")
-            .select("golfer_id, position, total_to_par, fantasy_points, made_cut, status")
+            .select("golfer_id, position, total_to_par, fantasy_points, made_cut, status, birdies, eagles")
             .eq("tournament_id", active.id)
             .in("golfer_id", golferIds)
         : Promise.resolve({
@@ -172,6 +175,8 @@ function LineupViewerPage() {
               fantasy_points: number;
               made_cut: boolean;
               status: string | null;
+              birdies: number;
+              eagles: number;
             }[],
           }),
     ]);
@@ -200,6 +205,8 @@ function LineupViewerPage() {
         fantasy_points: Number(res?.fantasy_points ?? 0),
         made_cut: res?.made_cut ?? false,
         status: res?.status ?? null,
+        birdies: Number(res?.birdies ?? 0),
+        eagles: Number(res?.eagles ?? 0),
       };
     });
 
@@ -279,7 +286,7 @@ function LineupViewerPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <div className="mx-auto max-w-5xl space-y-4">
       <Link
         to="/league/$id"
         params={{ id: leagueId }}
@@ -315,54 +322,89 @@ function LineupViewerPage() {
             No lineup submitted for this event.
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
-              <tr>
-                <th className="px-4 py-2">Golfer</th>
-                <th className="px-4 py-2 text-right">Pos</th>
-                <th className="px-4 py-2 text-right">Score</th>
-                <th className="px-4 py-2 text-right">Salary</th>
-                <th className="px-4 py-2 text-right">Pts</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.golfer_id} className="border-t">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <GolferAvatar name={r.name} pgaPlayerNum={r.pga_player_num} />
-                      <div className="min-w-0">
-                        <div className="font-medium text-slate-900">{r.name}</div>
-                        <div className="text-xs text-slate-500">
-                          {formatAmericanOdds(r.decimal_odds)} · {formatOwgr(r.owgr_rank)}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-600">
-                    {formatPos(r.position, r.status)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-slate-600">
-                    {formatToPar(r.total_to_par)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono">${r.salary.toLocaleString()}</td>
-                  <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-700">
-                    {r.fantasy_points.toFixed(1)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t bg-slate-50">
-                <td colSpan={4} className="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500">
-                  Total
-                </td>
-                <td className="px-4 py-3 text-right font-mono text-lg font-bold text-emerald-700">
-                  {lineupTotal.toFixed(1)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="px-4 py-2">Golfer</th>
+                    <th className="px-3 py-2 text-right">Pos</th>
+                    <th className="px-3 py-2 text-right">Score</th>
+                    <th className="px-3 py-2 text-right">Cut</th>
+                    <th className="px-3 py-2 text-right">Finish</th>
+                    <th className="px-3 py-2 text-right">Birdies</th>
+                    <th className="px-3 py-2 text-right">Eagles</th>
+                    <th className="px-3 py-2 text-right">Under</th>
+                    <th className="px-4 py-2 text-right">Pts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const bd = breakdownFantasyPoints({
+                      position: r.position,
+                      madeCut: r.made_cut,
+                      totalToPar: r.total_to_par,
+                      birdies: r.birdies,
+                      eagles: r.eagles,
+                    });
+                    const pts = r.fantasy_points || bd.total;
+                    return (
+                      <tr key={r.golfer_id} className="border-t">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <GolferAvatar name={r.name} pgaPlayerNum={r.pga_player_num} />
+                            <div className="min-w-0">
+                              <div className="font-medium text-slate-900">{r.name}</div>
+                              <div className="text-xs text-slate-500">
+                                {formatAmericanOdds(r.decimal_odds)} · {formatOwgr(r.owgr_rank)}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-slate-600">
+                          {formatPos(r.position, r.status)}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-slate-600">
+                          {formatToPar(r.total_to_par)}
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-slate-600">{bd.cut}</td>
+                        <td className="px-3 py-3 text-right font-mono text-slate-600">{bd.finish}</td>
+                        <td className="px-3 py-3 text-right font-mono text-slate-600">
+                          {bd.birdieCount}
+                          <span className="ml-1 text-xs text-slate-400">({bd.birdies})</span>
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-slate-600">
+                          {bd.eagleCount}
+                          <span className="ml-1 text-xs text-slate-400">({bd.eagles})</span>
+                        </td>
+                        <td className="px-3 py-3 text-right font-mono text-slate-600">{bd.underPar}</td>
+                        <td className="px-4 py-3 text-right font-mono font-semibold text-emerald-700">
+                          {pts.toFixed(1)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t bg-slate-50">
+                    <td
+                      colSpan={8}
+                      className="px-4 py-3 text-right text-xs font-semibold uppercase text-slate-500"
+                    >
+                      Total
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-lg font-bold text-emerald-700">
+                      {lineupTotal.toFixed(1)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="border-t px-4 py-3 text-xs text-slate-500">
+              Cut +10 · Birdie +1 · Eagle +3 · Under-par +1/stroke · Finish by place (1st +50 … made
+              cut +4). Updates live when scores sync.
+            </p>
+          </>
         )}
       </div>
     </div>

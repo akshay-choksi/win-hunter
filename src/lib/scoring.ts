@@ -25,15 +25,49 @@ export function computeFantasyPoints(input: {
   birdies?: number;
   eagles?: number;
 }): number {
-  let pts = 0;
-  if (input.madeCut) pts += SCORING.madeCut;
-  pts += finishPoints(input.position, input.madeCut);
-  pts += Math.max(input.birdies ?? 0, 0) * SCORING.birdie;
-  pts += Math.max(input.eagles ?? 0, 0) * SCORING.eagle;
-  if (input.totalToPar != null && input.totalToPar < 0) {
-    pts += Math.abs(input.totalToPar) * SCORING.underParPerStroke;
-  }
-  return pts;
+  return breakdownFantasyPoints(input).total;
+}
+
+export type FantasyPointsBreakdown = {
+  cut: number;
+  finish: number;
+  birdies: number;
+  eagles: number;
+  underPar: number;
+  /** Birdie count (for display), not points */
+  birdieCount: number;
+  eagleCount: number;
+  total: number;
+};
+
+/** Component breakdown matching compute_fantasy_points / SCORING. */
+export function breakdownFantasyPoints(input: {
+  position: number | null;
+  madeCut: boolean;
+  totalToPar: number | null;
+  birdies?: number;
+  eagles?: number;
+}): FantasyPointsBreakdown {
+  const birdieCount = Math.max(input.birdies ?? 0, 0);
+  const eagleCount = Math.max(input.eagles ?? 0, 0);
+  const cut = input.madeCut ? SCORING.madeCut : 0;
+  const finish = finishPoints(input.position, input.madeCut);
+  const birdies = birdieCount * SCORING.birdie;
+  const eagles = eagleCount * SCORING.eagle;
+  const underPar =
+    input.totalToPar != null && input.totalToPar < 0
+      ? Math.abs(input.totalToPar) * SCORING.underParPerStroke
+      : 0;
+  return {
+    cut,
+    finish,
+    birdies,
+    eagles,
+    underPar,
+    birdieCount,
+    eagleCount,
+    total: cut + finish + birdies + eagles + underPar,
+  };
 }
 
 export function formatOdds(decimalOdds: number | null | undefined): string {
@@ -79,6 +113,58 @@ export type Tournament = {
   status: TournamentStatus;
   lineup_lock_at: string | null;
 };
+
+/** Infer major / signature from event name (mirrors edge classifyEvent). */
+export function classifyEvent(name: string): TournamentEventType {
+  const n = name.toLowerCase();
+  if (
+    n.includes("masters") ||
+    n.includes("u.s. open") ||
+    n.includes("us open") ||
+    n.includes("open championship") ||
+    n.includes("the open") ||
+    n.includes("pga championship")
+  ) {
+    return "major";
+  }
+  if (
+    n.includes("signature") ||
+    n.includes("players championship") ||
+    n.includes("the players") ||
+    n.includes("sentry") ||
+    n.includes("pebble beach") ||
+    n.includes("genesis invitational") ||
+    n.includes("arnold palmer") ||
+    n.includes("memorial") ||
+    n.includes("rbc heritage") ||
+    n.includes("travelers")
+  ) {
+    return "signature";
+  }
+  return "standard";
+}
+
+/** Season-point multiplier: standard 1×, signature 1.5×, major 2×. */
+export function multiplierForEventType(eventType: TournamentEventType): number {
+  if (eventType === "major") return 2;
+  if (eventType === "signature") return 1.5;
+  return 1;
+}
+
+/** Display label e.g. "Major · ×2 Season Pts". */
+export function formatEventSeasonPtsLabel(
+  tournament: Pick<Tournament, "event_type" | "fedex_multiplier">,
+): string {
+  const typeLabel =
+    tournament.event_type === "major"
+      ? "Major"
+      : tournament.event_type === "signature"
+        ? "Signature"
+        : "Standard";
+  const m = Number(tournament.fedex_multiplier ?? multiplierForEventType(tournament.event_type));
+  const mLabel = Number.isInteger(m) ? String(m) : m.toFixed(1);
+  return `${typeLabel} · ×${mLabel} Season Pts`;
+}
 
 export function isLineupLocked(tournament: Pick<Tournament, "lineup_lock_at" | "status">): boolean {
   if (tournament.status === "completed" || tournament.status === "in_progress") return true;

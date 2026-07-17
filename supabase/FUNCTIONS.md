@@ -51,4 +51,4 @@ Or run the SQL in `supabase/migrations/20260716182000_odds_pricing_fedex_scoring
 | Birdie / Eagle | +1 / +3 each |
 | Under par | +1 per stroke under |
 
-League finish → FedEx points from `fedex_payout` × `tournaments.fedex_multiplier` (majors/signatures stay at `1.0` until you tune them).
+League finish → FedEx points from `fedex_payout` × `tournaments.fedex_multiplier` (standard `1.0`, signature `1.5`, major `2.0`).

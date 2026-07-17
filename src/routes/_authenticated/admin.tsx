@@ -243,13 +243,14 @@ function AdminPage() {
                 <th className="px-3 py-2">Event</th>
                 <th className="px-3 py-2">Start</th>
                 <th className="px-3 py-2">Type</th>
+                <th className="px-3 py-2">Mult</th>
                 <th className="px-3 py-2">Status</th>
               </tr>
             </thead>
             <tbody>
               {tournaments.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
                     No tournaments yet. Sync odds first.
                   </td>
                 </tr>
@@ -272,6 +273,11 @@ function AdminPage() {
                   <td className="px-3 py-2 font-medium">{t.name}</td>
                   <td className="px-3 py-2 font-mono text-xs">{t.start_date ?? "—"}</td>
                   <td className="px-3 py-2 text-xs capitalize">{t.event_type}</td>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    ×{Number.isInteger(Number(t.fedex_multiplier))
+                      ? Number(t.fedex_multiplier)
+                      : Number(t.fedex_multiplier).toFixed(1)}
+                  </td>
                   <td className="px-3 py-2 text-xs capitalize">{t.status}</td>
                 </tr>
               ))}

@@ -88,7 +88,7 @@ export async function dgFetch<T = unknown>(
   return (await res.json()) as T;
 }
 
-/** Infer major / signature from event name (multipliers stay 1.0 until tuned). */
+/** Infer major / signature from event name. */
 export function classifyEvent(name: string): "standard" | "signature" | "major" {
   const n = name.toLowerCase();
   if (
@@ -101,10 +101,31 @@ export function classifyEvent(name: string): "standard" | "signature" | "major" 
   ) {
     return "major";
   }
-  if (n.includes("signature") || n.includes("players championship") || n.includes("the players")) {
+  // PGA Signature events rarely include the word "signature" in the title
+  if (
+    n.includes("signature") ||
+    n.includes("players championship") ||
+    n.includes("the players") ||
+    n.includes("sentry") ||
+    n.includes("pebble beach") ||
+    n.includes("genesis invitational") ||
+    n.includes("arnold palmer") ||
+    n.includes("memorial") ||
+    n.includes("rbc heritage") ||
+    n.includes("travelers")
+  ) {
     return "signature";
   }
   return "standard";
+}
+
+/** Season-point multiplier from event type: standard 1×, signature 1.5×, major 2×. */
+export function multiplierForEventType(
+  eventType: "standard" | "signature" | "major",
+): number {
+  if (eventType === "major") return 2;
+  if (eventType === "signature") return 1.5;
+  return 1;
 }
 
 export function thursdayLockAt(startDate: string | null | undefined): string | null {

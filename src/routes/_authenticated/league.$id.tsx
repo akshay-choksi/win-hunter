@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Trophy, ArrowLeft, Zap, Medal, Eye } from "lucide-react";
-import { isLineupLocked, pickActiveTournament, type Tournament } from "@/lib/scoring";
+import { isLineupLocked, pickActiveTournament, formatEventSeasonPtsLabel, type Tournament } from "@/lib/scoring";
 
 export const Route = createFileRoute("/_authenticated/league/$id")({
   component: LeaguePage,
@@ -269,8 +269,8 @@ function LeaguePage() {
               </SelectContent>
             </Select>
             {selectedTournament && (
-              <span className="text-xs text-muted-foreground capitalize">
-                {selectedTournament.event_type} · ×{selectedTournament.fedex_multiplier} Season Pts
+              <span className="text-xs text-muted-foreground">
+                {formatEventSeasonPtsLabel(selectedTournament)}
               </span>
             )}
           </div>

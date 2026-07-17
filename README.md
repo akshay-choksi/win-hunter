@@ -23,25 +23,24 @@ Admin → Sync Odds → Sync Results → Finalize Event
 
 League list with create / join, invite codes, and salary-cap badges.
 
-<!-- Paste dashboard screenshot Markdown here. -->
+<img width="1440" height="812" alt="Screenshot 2026-07-17 at 11 16 48 AM" src="https://github.com/user-attachments/assets/364823ad-5c49-434e-96b4-21cc2a0fe19f" />
 
 ### Event leaderboard
 
 League home: live standings, event selector, season multipliers, and your points summary.
 
-<!-- Paste event leaderboard screenshot Markdown here. -->
+<img width="1383" height="755" alt="Screenshot 2026-07-17 at 11 17 06 AM" src="https://github.com/user-attachments/assets/cab6c527-fa73-48d4-bee6-095fc4e53002" />
+
 
 ### Live lineup scoring
 
 Member lineup viewer: navy summary card, per-golfer breakdown, live fantasy points.
 
-<!-- Paste lineup scoring screenshot Markdown here. -->
+<img width="1440" height="827" alt="Screenshot 2026-07-17 at 11 17 17 AM" src="https://github.com/user-attachments/assets/30a8849f-ad09-4481-9b8b-b2d994c57759" />
 
-### Product walkthrough
+### Walkthrough
 
-Screen recording of the authenticated flow (dashboard → league → lineup).
-
-<!-- Paste demo video / attachment link Markdown here. -->
+https://github.com/user-attachments/assets/67b719d7-fa95-4521-9e5a-b84f4e0fc78a
 
 ---
 

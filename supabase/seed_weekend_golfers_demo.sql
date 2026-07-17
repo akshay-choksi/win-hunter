@@ -89,8 +89,10 @@ BEGIN
     (v_league, u1), (v_league, u2), (v_league, u3), (v_league, u4), (v_league, u5)
   ON CONFLICT DO NOTHING;
 
+  -- Keep Open in_progress so other members' lineups are viewable on the event board.
+  -- For an unlocked draft event, run seed_3m_open_draft_demo.sql (opens 3M Open).
   UPDATE public.tournaments
-  SET status = 'open', lineup_lock_at = now() + interval '2 days'
+  SET status = 'in_progress'
   WHERE id = v_open;
 
   -- Live-ish fantasy points for Open golfers

@@ -28,6 +28,10 @@ Not browser cache — Supabase Auth. When `redirectTo` is not allow-listed, Auth
 
 Keep your Lovable preview URL(s) in the list too so preview login still works.
 
+## Friend beta / production OAuth
+
+For the published Lovable site, also add production Redirect URLs and run the checklist in [`FRIEND_BETA.md`](FRIEND_BETA.md).
+
 ## Admin / sync odds
 1. Sign in at http://localhost:8080/auth
 2. Open http://localhost:8080/admin

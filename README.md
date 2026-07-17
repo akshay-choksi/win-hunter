@@ -212,6 +212,7 @@ docs/screenshots/   # README preview assets (optional local copies)
 
 ## Notes
 
+- **Friend beta:** follow [`FRIEND_BETA.md`](FRIEND_BETA.md) (OAuth allowlist, security migration, DataGolf ops, dry-run before invites).
 - **Live UI vs live data:** Supabase Realtime refreshes the client when `player_results` / `lineups` change. Pulling DataGolf still requires **Sync Results** (or a future cron).
-- **Demo seed:** [`supabase/seed_weekend_golfers_demo.sql`](supabase/seed_weekend_golfers_demo.sql) can populate a sample league for UI demos.
+- **Demo seed:** [`supabase/seed_weekend_golfers_demo.sql`](supabase/seed_weekend_golfers_demo.sql) can populate a sample league for UI demos — **do not** re-run on shared prod during friend beta.
 - Prefer not rewriting published git history on the Lovable-connected branch (no force-push / rebase of shared commits).

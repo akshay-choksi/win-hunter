@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       fedex_payout: {
@@ -425,13 +450,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      am_i_admin: { Args: never; Returns: boolean }
       compute_fantasy_points: {
         Args: {
           _birdies: number
           _eagles: number
           _made_cut: boolean
-          _position: number | null
-          _total_to_par: number | null
+          _position: number
+          _total_to_par: number
         }
         Returns: number
       }
@@ -439,6 +465,13 @@ export type Database = {
       is_league_member: {
         Args: { _league_id: string; _user_id: string }
         Returns: boolean
+      }
+      join_league_by_invite: {
+        Args: { _invite_code: string }
+        Returns: {
+          id: string
+          name: string
+        }[]
       }
     }
     Enums: {
@@ -569,6 +602,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       tournament_event_type: ["standard", "signature", "major"],

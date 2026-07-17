@@ -52,3 +52,7 @@ Or run the SQL in `supabase/migrations/20260716182000_odds_pricing_fedex_scoring
 | Under par | +1 per stroke under |
 
 League finish → FedEx points from `fedex_payout` × `tournaments.fedex_multiplier` (standard `1.0`, signature `1.5`, major `2.0`).
+
+## Friend beta
+
+Before inviting friends, apply the security migration and follow the full runbook in [`../FRIEND_BETA.md`](../FRIEND_BETA.md) (prod OAuth, deploy functions, Sync Odds, dry-run).

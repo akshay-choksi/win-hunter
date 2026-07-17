@@ -229,22 +229,13 @@ function JoinLeague({ onJoined }: { onJoined: () => void }) {
   async function submit() {
     if (!user || !code.trim()) return;
     setSaving(true);
-    const { data: league, error } = await supabase
-      .from("leagues")
-      .select("id, name")
-      .eq("invite_code", code.trim().toUpperCase())
-      .maybeSingle();
+    // Exact-code join via SECURITY DEFINER RPC (leagues are no longer publicly listable).
+    const { data, error } = await supabase.rpc("join_league_by_invite", {
+      _invite_code: code.trim().toUpperCase(),
+    });
+    const league = Array.isArray(data) ? data[0] : data;
     if (error || !league) {
       toast.error(error?.message ?? "No league with that invite code");
-      setSaving(false);
-      return;
-    }
-    const { error: joinError } = await supabase.from("league_members").insert({
-      league_id: league.id,
-      user_id: user.id,
-    });
-    if (joinError) {
-      toast.error(joinError.message);
       setSaving(false);
       return;
     }

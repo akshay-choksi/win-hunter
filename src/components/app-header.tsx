@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { Flag, LayoutGrid, LogOut, Shield, ChevronDown } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -27,6 +28,7 @@ function emailInitials(email: string | undefined) {
 
 export function AppHeader() {
   const { user } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
@@ -61,10 +63,12 @@ export function AppHeader() {
             <LayoutGrid className="h-4 w-4" />
             Leagues
           </NavLink>
-          <NavLink to="/admin" active={onAdmin}>
-            <Shield className="h-4 w-4" />
-            Admin
-          </NavLink>
+          {isAdmin ? (
+            <NavLink to="/admin" active={onAdmin}>
+              <Shield className="h-4 w-4" />
+              Admin
+            </NavLink>
+          ) : null}
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
@@ -77,14 +81,16 @@ export function AppHeader() {
             >
               <Link to="/">Leagues</Link>
             </Button>
-            <Button
-              asChild
-              variant={onAdmin ? "secondary" : "ghost"}
-              size="sm"
-              className={cn(onAdmin && "bg-brand-muted text-accent-foreground")}
-            >
-              <Link to="/admin">Admin</Link>
-            </Button>
+            {isAdmin ? (
+              <Button
+                asChild
+                variant={onAdmin ? "secondary" : "ghost"}
+                size="sm"
+                className={cn(onAdmin && "bg-brand-muted text-accent-foreground")}
+              >
+                <Link to="/admin">Admin</Link>
+              </Button>
+            ) : null}
           </div>
 
           <DropdownMenu>
@@ -121,12 +127,14 @@ export function AppHeader() {
                   Leagues
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild className="sm:hidden">
-                <Link to="/admin">
-                  <Shield className="h-4 w-4" />
-                  Admin
-                </Link>
-              </DropdownMenuItem>
+              {isAdmin ? (
+                <DropdownMenuItem asChild className="sm:hidden">
+                  <Link to="/admin">
+                    <Shield className="h-4 w-4" />
+                    Admin
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
               <DropdownMenuSeparator className="sm:hidden" />
               <DropdownMenuItem
                 onClick={signOut}

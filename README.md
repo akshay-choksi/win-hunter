@@ -4,15 +4,9 @@ Salary-cap fantasy golf for friends: pick 6 golfers under a $50,000 cap, score l
 
 ---
 
-## Screenshots
+## Application preview
 
-Drop PNGs into [`docs/screenshots/`](docs/screenshots/) using these filenames (or update the paths below). With the app running at [http://localhost:8080](http://localhost:8080), capture:
-
-| File | Screen |
-|------|--------|
-| `01-home-leagues.png` | Home — league list / create / join |
-| `02-event-leaderboard.png` | League — event leaderboard |
-| `03-season-standings.png` | League — season standings |
+These samples show the seeded Weekend Golfers league with mock tournament data.
 
 ### Product flow
 
@@ -23,11 +17,21 @@ Auth → Home (leagues) → League (event + season boards)
 Admin → Sync Odds → Sync Results → Finalize Event
 ```
 
-![Home / leagues](docs/screenshots/01-home-leagues.png)
+### Event leaderboard
 
-![Event leaderboard](docs/screenshots/02-event-leaderboard.png)
+<!-- Upload the event leaderboard screenshot in GitHub's README editor and paste the generated Markdown here. -->
 
-![Season standings](docs/screenshots/03-season-standings.png)
+### Season standings
+
+<!-- Upload the season standings screenshot in GitHub's README editor and paste the generated Markdown here. -->
+
+### Live lineup scoring
+
+<!-- Upload the member lineup screenshot in GitHub's README editor and paste the generated Markdown here. -->
+
+### Product walkthrough
+
+<!-- Upload the screen recording in GitHub's README editor and paste the generated attachment link here. -->
 
 ---
 

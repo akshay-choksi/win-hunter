@@ -8,41 +8,37 @@ Use this before inviting friends onto the shared Lovable + Supabase project.
 - **Backend:** Hosted Supabase project `lkfdqzjoeigiwakhtsig`.
 - You remain the only **admin** for Sync Odds / Finalize Event. Members can request throttled live result refreshes.
 
-Do **not** re-run `supabase/seed_weekend_golfers_demo.sql` on the shared prod DB during beta.
+Do **not** re-run `supabase/seed_weekend_golfers_demo.sql` or `supabase/seed_3m_open_draft_demo.sql` on the shared prod DB during beta.
 
-## Status (automated)
+## Status
 
-| Step                                                                      | Status                                 |
-| ------------------------------------------------------------------------- | -------------------------------------- |
-| Security migration applied (`friend_beta_security`)                       | Done                                   |
-| Admin nav gated + `join_league_by_invite` client                          | Done (ship with next push)             |
-| Edge functions redeployed (`sync-odds`, `sync-results`, `finalize-event`) | Done                                   |
-| `DATAGOLF_API_KEY` secret present                                         | Done                                   |
-| Member live refresh + two-minute cooldown                                 | Done — tested against The Open         |
-| Admin account (`akshayjchoksi@gmail.com`)                                 | Done                                   |
-| Clean league **Friend Beta** created                                      | Done — invite code **`5744P5`**        |
-| Live events with prices                                                   | The Open (in_progress), 3M Open (open) |
-| Prod OAuth allowlist on Lovable URL                                       | **You** — see §2                       |
-| Non-admin live sync integration test                                      | Done — 156 Open players, 6 lineups     |
-| Dry-run Google OAuth + draft on a second account                          | **You** — see §4                       |
-| Invite friends with code only                                             | **You** — share `5744P5`               |
+| Step | Status |
+| ---- | ------ |
+| Security migration (`friend_beta_security`) | Done |
+| Admin nav gated + `join_league_by_invite` | Done (on `main`) |
+| Edge functions + `DATAGOLF_API_KEY` | Done |
+| DK Classic / ESPN live scoring | Done |
+| League **Friend Beta** · invite **`5744P5`** | Done |
+| Admin account (`akshayjchoksi@gmail.com`) | Done |
+| The Open closed for beta focus | Done — status `completed` (history kept) |
+| 3M Open demo prices wiped | Done — `scheduled`, **0 prices** |
+| Live Sync Odds for 3M | **Blocked until DataGolf field flips to 3M** (still The Open R2 as of reset) |
+| Prod OAuth allowlist on Lovable URL | **You** — §2 |
+| Dry-run second Google account | **You** — §4 |
+| Invite friends | **You** — §5 |
 
-Verify anytime: [`supabase/friend_beta_verify.sql`](supabase/friend_beta_verify.sql)
+Verify: [`supabase/friend_beta_verify.sql`](supabase/friend_beta_verify.sql)
+
+Reset scripts (already applied once on prod):
+
+- [`supabase/reset_3m_for_live_odds.sql`](supabase/reset_3m_for_live_odds.sql)
+- [`supabase/close_open_without_finalize.sql`](supabase/close_open_without_finalize.sql)
 
 ---
 
 ## 1. Security (code + migration)
 
-Already in repo:
-
-- Migration [`supabase/migrations/20260717120000_friend_beta_security.sql`](supabase/migrations/20260717120000_friend_beta_security.sql)
-  - Blocks client self-grant of `profiles.is_admin`
-  - Drops public league listing; join via `join_league_by_invite`
-- Admin nav only shows for admins
-
-Applied to hosted Supabase via `supabase db push`.
-
-If you ever need to re-grant admin (SQL editor as postgres only):
+Already applied. Re-grant admin only via SQL editor as postgres:
 
 ```sql
 UPDATE public.profiles p
@@ -55,63 +51,70 @@ WHERE p.id = u.id AND u.email = 'you@example.com';
 
 ## 2. Production OAuth (required — manual)
 
-1. Publish / open the **Lovable production URL** (not only localhost).
+1. In Lovable, **Publish** and copy the production URL (e.g. `https://….lovable.app`).
 2. Supabase → [Auth → URL Configuration](https://supabase.com/dashboard/project/lkfdqzjoeigiwakhtsig/auth/url-configuration):
+   - **Site URL** — set to the Lovable production URL (or keep preview and add redirects).
    - **Redirect URLs** — add:
      - `https://YOUR-LOVABLE-HOST/**`
      - `https://YOUR-LOVABLE-HOST/auth`
-     - Keep localhost entries for local dev (see [LOCAL_DEV.md](LOCAL_DEV.md)).
-3. If Google sign-in fails with redirect/origin errors, open Google Cloud Console → OAuth client and allow the same origin / redirect URI.
-4. Verify in an **incognito** window on a second device: open prod URL → Continue with Google → land on `/` leagues home.
+     - Keep localhost entries for local dev ([LOCAL_DEV.md](LOCAL_DEV.md)).
+3. Google Cloud Console → OAuth client → allow the same origin / redirect URI.
+4. Incognito on a second device: prod URL → Continue with Google → land on `/`.
 
 App uses `redirectTo = ${window.location.origin}/auth` ([src/routes/auth.tsx](src/routes/auth.tsx)).
 
 ---
 
-## 3. DataGolf + edge functions
+## 3. 3M Open live odds (operator)
 
-See [supabase/FUNCTIONS.md](supabase/FUNCTIONS.md). Already deployed on this project; re-run only when function code changes:
+Cloned Open prices were cleared. DataGolf’s **current** field is still The Open until that event ends / DG flips.
+
+When `field-updates` shows **3M Open**:
+
+1. `/admin` → **Sync Tournament Odds** (prices whatever event DG has live — do **not** sync while Open is still current if you only want 3M).
+2. Confirm 3M is `open`, has salaries/odds, lock time looks right.
+3. Spot-check draft favorites.
+
+Re-run wipe anytime:
 
 ```bash
-supabase secrets set DATAGOLF_API_KEY=your_key_here   # if rotating
-supabase functions deploy sync-odds
-supabase functions deploy sync-results
-supabase functions deploy finalize-event
+supabase db query --linked -f supabase/reset_3m_for_live_odds.sql --yes
 ```
 
-As admin on production:
+### Operator runbook
 
-1. Open `/admin`.
-2. **Sync Tournament Odds** if the next event has no prices (3M Open / The Open already have fields).
-3. Confirm draft shows a priced field.
+| When | Action |
+| ---- | ------ |
+| DG field = 3M | Sync Odds |
+| Before Thursday lock | Sync Odds again if field/odds move |
+| During tournament | Members Refresh live scores; admin can force Sync Results |
+| After event | Finalize Event for season points |
 
 ---
 
 ## 4. Friend dry-run
 
-League ready: **Friend Beta** · invite code **`5744P5`**
-
-1. Push this branch so Lovable picks up join-RPC + Admin nav gating.
-2. Complete §2 OAuth on the Lovable URL.
-3. Sign in as a **second** Google account, join with `5744P5`.
-4. Both set lineups for **3M Open** (status `open`, unlocked) or view The Open after lock.
-5. Open an in-progress lineup and click **Refresh live scores** → check the leaderboard and lineup viewer.
-6. Invite the rest of the group with **`5744P5` only** (codes are no longer browsable by all signed-in users).
-
-### Operator runbook during the event
-
-| When                  | Action                                                             |
-| --------------------- | ------------------------------------------------------------------ |
-| Before Thursday lock  | Sync Odds (if field/odds change)                                   |
-| During tournament     | Any member can refresh from a lineup; admin can force Sync Results |
-| After event completes | Finalize Event for season points                                   |
+1. Complete §2 OAuth on the Lovable URL.
+2. Second Google account → join with **`5744P5`** → confirm **Admin** is hidden.
+3. After Sync Odds for 3M: both set lineups for **3M Open**.
+4. (Optional) View completed Open lineups for history.
 
 ---
 
-## 5. What friends need
+## 5. What to send friends
 
-- The Lovable URL
-- A Google account
-- Invite code **`5744P5`**
+Copy/paste:
 
-They do **not** need admin, DataGolf keys, or Supabase access.
+```
+WinHunters fantasy golf — Friend Beta
+
+1. Open: <PASTE_LOVABLE_URL>
+2. Sign in with Google
+3. Join league with invite code: 5744P5
+4. Set your lineup for the 3M Open before lock (Thursday tee / app lock time)
+
+Questions → reply here. Don’t share the invite code publicly.
+```
+
+They need: Lovable URL + Google + **`5744P5`**.  
+They do **not** need admin, DataGolf, or Supabase.

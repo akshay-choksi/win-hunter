@@ -207,8 +207,10 @@ function AdminPage() {
       <Card className="p-6">
         <h2 className="font-semibold">Tournament Odds</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pull schedule, field, and outright odds from DataGolf. Converts odds into salaries for the
-          active event.
+          Pull schedule, field, and outright odds from DataGolf. Prices the{" "}
+          <span className="font-medium text-foreground">current</span> PGA field only (whatever
+          DataGolf has live — usually this week&apos;s event). Upcoming events stay scheduled until
+          their field goes live.
         </p>
         <Button onClick={syncOdds} disabled={syncingOdds} className="mt-4">
           {syncingOdds ? (

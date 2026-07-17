@@ -55,13 +55,13 @@ function AuthPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-emerald-50 to-slate-50 px-4">
-      <Card className="w-full max-w-md p-8">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-muted via-background to-muted px-4">
+      <Card className="w-full max-w-md gap-0 p-8 shadow-lg shadow-primary/5">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-emerald-600 text-white">
+          <div className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-md shadow-primary/30">
             <Flag className="h-7 w-7" />
           </div>
-          <h1 className="text-2xl font-bold">WinHunters</h1>
+          <h1 className="text-2xl font-bold tracking-tight">WinHunters</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Fantasy golf salary cap pools with your crew.
           </p>
@@ -81,7 +81,10 @@ function AuthPage() {
 function GoogleIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.4-1.6 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.4 14.6 2.5 12 2.5 6.8 2.5 2.6 6.7 2.6 12S6.8 21.5 12 21.5c6.9 0 9.5-4.8 9.5-8.5 0-.6-.1-1-.1-1.5H12z"/>
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.9h5.5c-.2 1.4-1.6 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.4 14.6 2.5 12 2.5 6.8 2.5 2.6 6.7 2.6 12S6.8 21.5 12 21.5c6.9 0 9.5-4.8 9.5-8.5 0-.6-.1-1-.1-1.5H12z"
+      />
     </svg>
   );
 }

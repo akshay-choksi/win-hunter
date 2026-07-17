@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Trophy, Users, Plus, LogIn } from "lucide-react";
+import { Trophy, Users, Plus, LogIn, ArrowRight } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
+import { StatusBadge } from "@/components/status-badge";
 
 export const Route = createFileRoute("/_authenticated/")({
   component: DashboardPage,
@@ -72,27 +75,36 @@ function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Your leagues</h1>
-          <p className="mt-1 text-muted-foreground">
-            Create a pool or join with an invite code.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <JoinLeague onJoined={load} />
-          <CreateLeague onCreated={load} />
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Dashboard"
+        title="Your leagues"
+        description="Create a salary-cap pool or join with an invite code."
+        actions={
+          <>
+            <JoinLeague onJoined={load} />
+            <CreateLeague onCreated={load} />
+          </>
+        }
+      />
 
       {leagues === null ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map((i) => (
+            <Card key={i} className="gap-0 p-5 shadow-sm">
+              <Skeleton className="h-5 w-2/3" />
+              <Skeleton className="mt-4 h-3 w-24" />
+              <Skeleton className="mt-2 h-3 w-40" />
+            </Card>
+          ))}
+        </div>
       ) : leagues.length === 0 ? (
-        <Card className="p-10 text-center">
-          <Trophy className="mx-auto mb-3 h-10 w-10 text-emerald-600" />
+        <Card className="gap-0 border-dashed p-10 text-center shadow-sm">
+          <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-brand-muted text-primary">
+            <Trophy className="h-7 w-7" />
+          </div>
           <h2 className="text-lg font-semibold">No leagues yet</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Start one for your group or join with a code.
+          <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+            Start one for your group or join with a code to begin drafting lineups.
           </p>
         </Card>
       ) : (
@@ -100,19 +112,32 @@ function DashboardPage() {
           {leagues.map((league) => (
             <Card
               key={league.id}
-              className="cursor-pointer p-5 transition hover:border-emerald-600/50 hover:shadow-sm"
+              className="group cursor-pointer gap-0 overflow-hidden border-border/80 p-0 shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
               onClick={() => router.navigate({ to: "/league/$id", params: { id: league.id } })}
             >
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold">{league.name}</h3>
-                <Users className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="h-1.5 bg-gradient-to-r from-primary to-navy" />
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-base font-semibold tracking-tight">
+                      {league.name}
+                    </h3>
+                    <p className="mt-1.5 font-mono text-xs text-muted-foreground">
+                      Invite {league.invite_code}
+                    </p>
+                  </div>
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-muted text-primary">
+                    <Users className="h-4 w-4" />
+                  </span>
+                </div>
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <StatusBadge tone="open">Cap ${league.salary_cap.toLocaleString()}</StatusBadge>
+                  <StatusBadge tone="muted">{league.max_players} golfers</StatusBadge>
+                </div>
+                <p className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary opacity-0 transition group-hover:opacity-100">
+                  Open league <ArrowRight className="h-3.5 w-3.5" />
+                </p>
               </div>
-              <p className="mt-2 font-mono text-xs text-muted-foreground">
-                Code {league.invite_code}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Cap ${league.salary_cap.toLocaleString()} · {league.max_players} golfers
-              </p>
             </Card>
           ))}
         </div>

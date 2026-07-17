@@ -2,7 +2,6 @@ import { createFileRoute, Link, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -12,8 +11,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trophy, ArrowLeft, Zap, Medal, Eye } from "lucide-react";
-import { isLineupLocked, pickActiveTournament, formatEventSeasonPtsLabel, type Tournament } from "@/lib/scoring";
+import { Trophy, ArrowLeft, Zap, Medal, Eye, Copy } from "lucide-react";
+import { toast } from "sonner";
+import {
+  isLineupLocked,
+  pickActiveTournament,
+  formatEventSeasonPtsLabel,
+  type Tournament,
+} from "@/lib/scoring";
+import { PageHeader } from "@/components/page-header";
+import { SurfacePanel } from "@/components/surface-panel";
+import { StatusBadge } from "@/components/status-badge";
+import { StatCard } from "@/components/stat-card";
 
 export const Route = createFileRoute("/_authenticated/league/$id")({
   component: LeaguePage,
@@ -163,10 +172,8 @@ function LeaguePage() {
         { event: "*", schema: "public", table: "lineups", filter: `league_id=eq.${id}` },
         () => loadEventStandings(selectedTournamentId),
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "lineup_entries" },
-        () => loadEventStandings(selectedTournamentId),
+      .on("postgres_changes", { event: "*", schema: "public", table: "lineup_entries" }, () =>
+        loadEventStandings(selectedTournamentId),
       )
       .on(
         "postgres_changes",
@@ -194,61 +201,113 @@ function LeaguePage() {
   const selectedTournament = tournaments.find((t) => t.id === selectedTournamentId) ?? null;
   const rosterSize = league?.max_players ?? 6;
   const locked = selectedTournament ? isLineupLocked(selectedTournament) : false;
+  const leaderPts = eventStandings[0]?.total_points;
+  const yourStanding = eventStandings.find((s) => s.user_id === user?.id);
+
+  async function copyInvite() {
+    if (!league?.invite_code) return;
+    try {
+      await navigator.clipboard.writeText(league.invite_code);
+      toast.success("Invite code copied");
+    } catch {
+      toast.error("Could not copy invite code");
+    }
+  }
 
   return (
     <div className="space-y-6">
       <Link
         to="/"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground transition hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" /> All leagues
       </Link>
 
       {league && (
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">{league.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              Invite code <span className="font-mono">{league.invite_code}</span> · Cap $
-              {league.salary_cap.toLocaleString()}
-            </p>
-            {selectedTournament?.lineup_lock_at && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {locked ? "Lineups locked" : "Lineups lock"}{" "}
-                {new Date(selectedTournament.lineup_lock_at).toLocaleString()}
-              </p>
-            )}
-          </div>
-          {locked ? (
-            user && (
-              <Button size="lg" variant="outline" asChild>
-                <Link
-                  to="/league/$id/lineup/$userId"
-                  params={{ id, userId: user.id }}
-                  search={{ tournament: selectedTournamentId ?? undefined }}
+        <>
+          <PageHeader
+            eyebrow="League"
+            title={league.name}
+            description={
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={copyInvite}
+                  className="inline-flex items-center gap-1.5 rounded-full border bg-card px-2.5 py-1 font-mono text-xs text-foreground transition hover:border-primary/40 hover:text-primary"
                 >
-                  <Eye className="mr-2 h-4 w-4" /> View my lineup
-                </Link>
-              </Button>
-            )
-          ) : (
-            <Button size="lg" asChild>
-              <Link
-                to="/league/$id/draft"
-                params={{ id }}
-                search={{ tournament: selectedTournamentId ?? undefined }}
-              >
-                <Zap className="mr-2 h-4 w-4" /> Set lineup
-              </Link>
-            </Button>
-          )}
-        </div>
+                  {league.invite_code}
+                  <Copy className="h-3 w-3 text-muted-foreground" />
+                </button>
+                <StatusBadge tone="open">Cap ${league.salary_cap.toLocaleString()}</StatusBadge>
+                {selectedTournament?.lineup_lock_at && (
+                  <StatusBadge tone={locked ? "locked" : "live"}>
+                    {locked ? "Locked" : "Open"} ·{" "}
+                    {new Date(selectedTournament.lineup_lock_at).toLocaleString()}
+                  </StatusBadge>
+                )}
+              </div>
+            }
+            actions={
+              locked ? (
+                user && (
+                  <Button size="lg" variant="outline" asChild>
+                    <Link
+                      to="/league/$id/lineup/$userId"
+                      params={{ id, userId: user.id }}
+                      search={{ tournament: selectedTournamentId ?? undefined }}
+                    >
+                      <Eye className="mr-2 h-4 w-4" /> View my lineup
+                    </Link>
+                  </Button>
+                )
+              ) : (
+                <Button size="lg" asChild>
+                  <Link
+                    to="/league/$id/draft"
+                    params={{ id }}
+                    search={{ tournament: selectedTournamentId ?? undefined }}
+                  >
+                    <Zap className="mr-2 h-4 w-4" /> Set lineup
+                  </Link>
+                </Button>
+              )
+            }
+          />
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <StatCard
+              label="Event entries"
+              value={eventStandings.length}
+              hint={selectedTournament?.name ?? "Select an event"}
+            />
+            <StatCard
+              label="Leader"
+              value={leaderPts != null ? leaderPts.toFixed(1) : "—"}
+              hint={eventStandings[0]?.full_name ?? "No lineups yet"}
+              tone="success"
+            />
+            <StatCard
+              label="Your points"
+              value={yourStanding ? yourStanding.total_points.toFixed(1) : "—"}
+              hint={
+                yourStanding
+                  ? `#${eventStandings.findIndex((s) => s.user_id === user?.id) + 1} this event`
+                  : "No lineup submitted"
+              }
+              tone="navy"
+            />
+          </div>
+        </>
       )}
 
-      <Tabs defaultValue="event">
-        <TabsList>
-          <TabsTrigger value="event">Event Leaderboard</TabsTrigger>
-          <TabsTrigger value="season">Season Standings</TabsTrigger>
+      <Tabs defaultValue="event" className="gap-4">
+        <TabsList className="h-11 w-full justify-start gap-1 rounded-xl bg-muted/70 p-1 sm:w-auto">
+          <TabsTrigger value="event" className="rounded-lg px-4">
+            Event Leaderboard
+          </TabsTrigger>
+          <TabsTrigger value="season" className="rounded-lg px-4">
+            Season Standings
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="event" className="space-y-3">
@@ -257,7 +316,7 @@ function LeaguePage() {
               value={selectedTournamentId ?? ""}
               onValueChange={(v) => setSelectedTournamentId(v)}
             >
-              <SelectTrigger className="w-[min(100%,320px)]">
+              <SelectTrigger className="w-[min(100%,320px)] bg-card shadow-sm">
                 <SelectValue placeholder="Select event" />
               </SelectTrigger>
               <SelectContent>
@@ -269,115 +328,151 @@ function LeaguePage() {
               </SelectContent>
             </Select>
             {selectedTournament && (
-              <span className="text-xs text-muted-foreground">
+              <StatusBadge tone="muted">
                 {formatEventSeasonPtsLabel(selectedTournament)}
-              </span>
+              </StatusBadge>
             )}
           </div>
 
-          <Card className="overflow-hidden">
-            <div className="flex items-center justify-between border-b bg-muted/40 px-5 py-3">
-              <div className="flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-emerald-600" />
-                <h2 className="font-semibold">
-                  {selectedTournament?.name ?? "Event"} Leaderboard
-                </h2>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {locked ? "Live · Click a player to view lineup" : "Realtime"}
-              </span>
-            </div>
+          <SurfacePanel
+            icon={<Trophy className="h-5 w-5" />}
+            title={`${selectedTournament?.name ?? "Event"} Leaderboard`}
+            meta={locked ? "Live · Click a player to view lineup" : "Realtime"}
+          >
             {eventStandings.length === 0 ? (
               <div className="p-10 text-center text-sm text-muted-foreground">
                 No lineups submitted for this event yet.
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-muted/20 text-left text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-5 py-2 w-12">#</th>
-                    <th className="px-5 py-2">Player</th>
-                    <th className="px-5 py-2">Golfers</th>
-                    <th className="px-5 py-2 text-right">Spent</th>
-                    <th className="px-5 py-2 text-right">Points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {eventStandings.map((s, i) => {
-                    const canView = locked || s.user_id === user?.id;
-                    return (
-                      <tr key={s.user_id} className="border-t hover:bg-muted/30">
-                        <td className="px-5 py-3 font-mono text-muted-foreground">{i + 1}</td>
-                        <td className="px-5 py-3 font-medium">
-                          {canView ? (
-                            <Link
-                              to="/league/$id/lineup/$userId"
-                              params={{ id, userId: s.user_id }}
-                              search={{ tournament: selectedTournamentId ?? undefined }}
-                              className="text-emerald-700 hover:underline"
-                            >
-                              {s.full_name ?? "Player"}
-                            </Link>
-                          ) : (
-                            (s.full_name ?? "Player")
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          {s.golfer_count} / {rosterSize}
-                        </td>
-                        <td className="px-5 py-3 text-right font-mono">
-                          ${s.total_spent.toLocaleString()}
-                        </td>
-                        <td className="px-5 py-3 text-right font-mono font-semibold">
-                          {s.total_points.toFixed(1)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/20 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-5 py-2.5 w-12">#</th>
+                      <th className="px-5 py-2.5">Player</th>
+                      <th className="px-5 py-2.5">Golfers</th>
+                      <th className="px-5 py-2.5 text-right">Spent</th>
+                      <th className="px-5 py-2.5 text-right">Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eventStandings.map((s, i) => {
+                      const canView = locked || s.user_id === user?.id;
+                      const isYou = s.user_id === user?.id;
+                      return (
+                        <tr
+                          key={s.user_id}
+                          className="border-t border-border/70 transition hover:bg-brand-muted/30"
+                        >
+                          <td className="px-5 py-3 font-mono text-muted-foreground">
+                            {i === 0 ? (
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                                1
+                              </span>
+                            ) : (
+                              i + 1
+                            )}
+                          </td>
+                          <td className="px-5 py-3 font-medium">
+                            {canView ? (
+                              <Link
+                                to="/league/$id/lineup/$userId"
+                                params={{ id, userId: s.user_id }}
+                                search={{ tournament: selectedTournamentId ?? undefined }}
+                                className="text-primary hover:underline"
+                              >
+                                {s.full_name ?? "Player"}
+                                {isYou ? (
+                                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                    you
+                                  </span>
+                                ) : null}
+                              </Link>
+                            ) : (
+                              <>
+                                {s.full_name ?? "Player"}
+                                {isYou ? (
+                                  <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                    you
+                                  </span>
+                                ) : null}
+                              </>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 tabular-nums">
+                            {s.golfer_count} / {rosterSize}
+                          </td>
+                          <td className="px-5 py-3 text-right font-mono tabular-nums">
+                            ${s.total_spent.toLocaleString()}
+                          </td>
+                          <td className="px-5 py-3 text-right font-mono text-base font-semibold tabular-nums text-success">
+                            {s.total_points.toFixed(1)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </Card>
+          </SurfacePanel>
         </TabsContent>
 
         <TabsContent value="season">
-          <Card className="overflow-hidden">
-            <div className="flex items-center justify-between border-b bg-muted/40 px-5 py-3">
-              <div className="flex items-center gap-2">
-                <Medal className="h-5 w-5 text-emerald-600" />
-                <h2 className="font-semibold">{seasonYear} Season Standings</h2>
-              </div>
-              <span className="text-xs text-muted-foreground">Season Points</span>
-            </div>
+          <SurfacePanel
+            icon={<Medal className="h-5 w-5" />}
+            title={`${seasonYear} Season Standings`}
+            meta="Season Points"
+          >
             {seasonStandings.length === 0 ? (
               <div className="p-10 text-center text-sm text-muted-foreground">
                 No season points yet. Finalize an event after it completes.
               </div>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-muted/20 text-left text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-5 py-2 w-12">#</th>
-                    <th className="px-5 py-2">Player</th>
-                    <th className="px-5 py-2 text-right">Events</th>
-                    <th className="px-5 py-2 text-right">Season Pts</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {seasonStandings.map((s, i) => (
-                    <tr key={s.user_id} className="border-t">
-                      <td className="px-5 py-3 font-mono text-muted-foreground">{i + 1}</td>
-                      <td className="px-5 py-3 font-medium">{s.full_name ?? "Player"}</td>
-                      <td className="px-5 py-3 text-right">{s.events_played}</td>
-                      <td className="px-5 py-3 text-right font-mono font-semibold">
-                        {s.fedex_points.toFixed(1)}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/20 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-5 py-2.5 w-12">#</th>
+                      <th className="px-5 py-2.5">Player</th>
+                      <th className="px-5 py-2.5 text-right">Events</th>
+                      <th className="px-5 py-2.5 text-right">Season Pts</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {seasonStandings.map((s, i) => (
+                      <tr
+                        key={s.user_id}
+                        className="border-t border-border/70 transition hover:bg-brand-muted/30"
+                      >
+                        <td className="px-5 py-3 font-mono text-muted-foreground">
+                          {i === 0 ? (
+                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                              1
+                            </span>
+                          ) : (
+                            i + 1
+                          )}
+                        </td>
+                        <td className="px-5 py-3 font-medium">
+                          {s.full_name ?? "Player"}
+                          {s.user_id === user?.id ? (
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              you
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-5 py-3 text-right tabular-nums">{s.events_played}</td>
+                        <td className="px-5 py-3 text-right font-mono text-base font-semibold tabular-nums text-success">
+                          {s.fedex_points.toFixed(1)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </Card>
+          </SurfacePanel>
         </TabsContent>
       </Tabs>
     </div>

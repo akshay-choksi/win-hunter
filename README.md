@@ -6,7 +6,9 @@ Salary-cap fantasy golf for friends: pick 6 golfers under a $50,000 cap, score l
 
 ## Application preview
 
-These samples show the seeded Weekend Golfers league with mock tournament data.
+Polished sports-dashboard UI (green brand + navy emphasis panels) against the seeded Weekend Golfers league with mock tournament data.
+
+Upload each asset in GitHub’s README editor, then paste the generated Markdown under the matching heading.
 
 ### Product flow
 
@@ -17,21 +19,29 @@ Auth → Home (leagues) → League (event + season boards)
 Admin → Sync Odds → Sync Results → Finalize Event
 ```
 
+### Dashboard — your leagues
+
+League list with create / join, invite codes, and salary-cap badges.
+
+<!-- Paste dashboard screenshot Markdown here. -->
+
 ### Event leaderboard
 
-<!-- Upload the event leaderboard screenshot in GitHub's README editor and paste the generated Markdown here. -->
+League home: live standings, event selector, season multipliers, and your points summary.
 
-### Season standings
-
-<!-- Upload the season standings screenshot in GitHub's README editor and paste the generated Markdown here. -->
+<!-- Paste event leaderboard screenshot Markdown here. -->
 
 ### Live lineup scoring
 
-<!-- Upload the member lineup screenshot in GitHub's README editor and paste the generated Markdown here. -->
+Member lineup viewer: navy summary card, per-golfer breakdown, live fantasy points.
+
+<!-- Paste lineup scoring screenshot Markdown here. -->
 
 ### Product walkthrough
 
-<!-- Upload the screen recording in GitHub's README editor and paste the generated attachment link here. -->
+Screen recording of the authenticated flow (dashboard → league → lineup).
+
+<!-- Paste demo video / attachment link Markdown here. -->
 
 ---
 
@@ -40,7 +50,8 @@ Admin → Sync Odds → Sync Results → Finalize Event
 | Layer | Choice |
 |-------|--------|
 | UI | React 19, TypeScript, Vite, TanStack Start / Router |
-| Components | shadcn/ui (Radix), Tailwind CSS |
+| Components | shadcn/ui (Radix), Tailwind CSS v4 design tokens (`primary` green, `navy`, `success`) |
+| App chrome | Sticky `AppHeader`, `PageHeader`, `StatCard`, `SurfacePanel`, `StatusBadge` |
 | Backend | [Supabase](https://supabase.com) (hosted Postgres + Auth + Edge Functions + Realtime) |
 | Golf data | [DataGolf](https://datagolf.com/) HTTP API (schedule, field, odds, in-play) |
 | Hosting / editor | Connected to [Lovable](https://lovable.dev) (avoid force-pushing rewritten history on the synced branch) |
@@ -175,14 +186,15 @@ Fantasy scoring (round-based): made cut +10; finish bonuses; birdie +1; eagle +3
 ```
 src/
   routes/           # TanStack file routes (league, draft, lineup, admin, auth)
-  components/       # UI + GolferAvatar
+  components/       # App chrome + shadcn/ui + GolferAvatar
+  styles.css        # Brand tokens (green / navy / success)
   lib/scoring.ts    # Fantasy math, odds, multipliers
   integrations/supabase/
 supabase/
   migrations/       # Schema, RLS, triggers
   functions/        # sync-odds, sync-results, finalize-event
   FUNCTIONS.md      # Ops for DataGolf + deploys
-docs/screenshots/   # README images
+docs/screenshots/   # README preview assets (optional local copies)
 ```
 
 ---

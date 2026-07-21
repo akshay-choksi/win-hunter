@@ -71,7 +71,7 @@ leaderboard position on every refresh.
 
 There is no flat made-cut bonus — making the cut matters because golfers play more holes.
 
-League finish → FedEx points from `fedex_payout` × `tournaments.fedex_multiplier` (standard `1.0`, signature `1.5`, major `2.0`).
+League finish → FedEx points from `fedex_payout` × `tournaments.fedex_multiplier` (standard `1.0`, signature `1.5`, major `2.0`). Finalize writes `lineups.league_finish` + `lineups.season_points`, and increments `season_standings.wins` / `top5s` (1st = win; finishes 1–5 = top 5).
 
 ## Friend beta
 

@@ -173,7 +173,7 @@ Then open `/admin` → **Sync Tournament Odds**.
 2. **Draft** a lineup before `lineup_lock_at` (first tee / Thursday). Over-budget adds are blocked.
 3. **Event leaderboard** ranks lineup fantasy points and updates through Supabase Realtime.
 4. **Lineup viewer** shows the live per-golfer breakdown and lets league members request a DataGolf refresh during an event.
-5. **Finalize Event** awards season points from league finish × event multiplier (standard 1× / signature 1.5× / major 2×).
+5. **Finalize Event** awards season points from league finish × event multiplier (standard 1× / signature 1.5× / major 2×), stores per-event place/season points on each lineup, and tracks wins / top-5 finishes on season standings.
 
 Fantasy scoring follows **DraftKings Classic Golf**: hole points (eagle +8, birdie +3, par +0.5, bogey −0.5, double+ −1), live place bonuses (1st +30 … 50th +1), plus DK streaks/bonuses. Place points update on every live score refresh.
 

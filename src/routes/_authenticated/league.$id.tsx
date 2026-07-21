@@ -42,13 +42,16 @@ type EventStanding = {
   total_spent: number;
   total_points: number;
   golfer_count: number;
+  league_finish: number | null;
+  season_points: number;
 };
 
 type SeasonStanding = {
   user_id: string;
   full_name: string | null;
   fedex_points: number;
-  events_played: number;
+  wins: number;
+  top5s: number;
 };
 
 function LeaguePage() {
@@ -89,7 +92,7 @@ function LeaguePage() {
   async function loadEventStandings(tournamentId: string) {
     const { data: lineups } = await supabase
       .from("lineups")
-      .select("id, user_id, total_spent, total_points")
+      .select("id, user_id, total_spent, total_points, league_finish, season_points")
       .eq("league_id", id)
       .eq("tournament_id", tournamentId);
     if (!lineups) {
@@ -121,15 +124,24 @@ function LeaguePage() {
         total_spent: l.total_spent,
         total_points: Number(l.total_points ?? 0),
         golfer_count: countByLineup.get(l.id) ?? 0,
+        league_finish: l.league_finish ?? null,
+        season_points: Number(l.season_points ?? 0),
       }))
-      .sort((a, b) => b.total_points - a.total_points || b.total_spent - a.total_spent);
+      .sort((a, b) => {
+        if (a.league_finish != null && b.league_finish != null) {
+          return a.league_finish - b.league_finish || b.total_points - a.total_points;
+        }
+        if (a.league_finish != null) return -1;
+        if (b.league_finish != null) return 1;
+        return b.total_points - a.total_points || b.total_spent - a.total_spent;
+      });
     setEventStandings(rows);
   }
 
   async function loadSeasonStandings() {
     const { data } = await supabase
       .from("season_standings")
-      .select("user_id, fedex_points, events_played")
+      .select("user_id, fedex_points, wins, top5s")
       .eq("league_id", id)
       .eq("season_year", seasonYear)
       .order("fedex_points", { ascending: false });
@@ -146,7 +158,8 @@ function LeaguePage() {
         user_id: r.user_id,
         full_name: nameById.get(r.user_id) ?? "Player",
         fedex_points: Number(r.fedex_points ?? 0),
-        events_played: r.events_played,
+        wins: Number(r.wins ?? 0),
+        top5s: Number(r.top5s ?? 0),
       })),
     );
   }
@@ -337,7 +350,14 @@ function LeaguePage() {
               <SelectContent>
                 {tournaments.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name} ({t.status})
+                    {t.name}
+                    {t.status === "completed"
+                      ? " · Completed"
+                      : t.status === "in_progress"
+                        ? " · Live"
+                        : t.status === "open"
+                          ? " · Open"
+                          : ` · ${t.status}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -352,7 +372,13 @@ function LeaguePage() {
           <SurfacePanel
             icon={<Trophy className="h-5 w-5" />}
             title={`${selectedTournament?.name ?? "Event"} Leaderboard`}
-            meta={locked ? "Live · Click a player to view lineup" : "Realtime"}
+            meta={
+              selectedTournament?.status === "completed"
+                ? "Final · Click a player to view lineup"
+                : locked
+                  ? "Live · Click a player to view lineup"
+                  : "Realtime"
+            }
           >
             {eventStandings.length === 0 ? (
               <div className="p-10 text-center text-sm text-muted-foreground">
@@ -363,29 +389,33 @@ function LeaguePage() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/20 text-left text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
-                      <th className="px-5 py-2.5 w-12">#</th>
+                      <th className="px-5 py-2.5 w-12">Place</th>
                       <th className="px-5 py-2.5">Player</th>
                       <th className="px-5 py-2.5">Golfers</th>
                       <th className="px-5 py-2.5 text-right">Spent</th>
-                      <th className="px-5 py-2.5 text-right">Points</th>
+                      <th className="px-5 py-2.5 text-right">Fantasy Pts</th>
+                      <th className="px-5 py-2.5 text-right">Season Pts</th>
                     </tr>
                   </thead>
                   <tbody>
                     {eventStandings.map((s, i) => {
                       const canView = locked || s.user_id === user?.id;
                       const isYou = s.user_id === user?.id;
+                      const place = s.league_finish ?? i + 1;
+                      const showSeasonPts =
+                        selectedTournament?.status === "completed" || s.league_finish != null;
                       return (
                         <tr
                           key={s.user_id}
                           className="border-t border-border/70 transition hover:bg-brand-muted/30"
                         >
                           <td className="px-5 py-3 font-mono text-muted-foreground">
-                            {i === 0 ? (
+                            {place === 1 ? (
                               <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
                                 1
                               </span>
                             ) : (
-                              i + 1
+                              place
                             )}
                           </td>
                           <td className="px-5 py-3 font-medium">
@@ -423,6 +453,9 @@ function LeaguePage() {
                           <td className="px-5 py-3 text-right font-mono text-base font-semibold tabular-nums text-success">
                             {s.total_points.toFixed(1)}
                           </td>
+                          <td className="px-5 py-3 text-right font-mono tabular-nums text-muted-foreground">
+                            {showSeasonPts ? s.season_points.toFixed(1) : "—"}
+                          </td>
                         </tr>
                       );
                     })}
@@ -450,7 +483,8 @@ function LeaguePage() {
                     <tr>
                       <th className="px-5 py-2.5 w-12">#</th>
                       <th className="px-5 py-2.5">Player</th>
-                      <th className="px-5 py-2.5 text-right">Events</th>
+                      <th className="px-5 py-2.5 text-right">Wins</th>
+                      <th className="px-5 py-2.5 text-right">Top 5</th>
                       <th className="px-5 py-2.5 text-right">Season Pts</th>
                     </tr>
                   </thead>
@@ -477,7 +511,8 @@ function LeaguePage() {
                             </span>
                           ) : null}
                         </td>
-                        <td className="px-5 py-3 text-right tabular-nums">{s.events_played}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{s.wins}</td>
+                        <td className="px-5 py-3 text-right tabular-nums">{s.top5s}</td>
                         <td className="px-5 py-3 text-right font-mono text-base font-semibold tabular-nums text-success">
                           {s.fedex_points.toFixed(1)}
                         </td>

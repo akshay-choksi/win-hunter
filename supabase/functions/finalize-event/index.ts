@@ -70,10 +70,9 @@ Deno.serve(async (req) => {
     );
     const multiplier = Number(tournament.fedex_multiplier ?? 1);
 
-    // All leagues that have lineups for this event
     const { data: lineups, error: lineupsError } = await admin
       .from("lineups")
-      .select("id, league_id, user_id, total_points")
+      .select("id, league_id, user_id, total_points, league_finish, season_points")
       .eq("tournament_id", tournament.id);
     if (lineupsError) throw new Error(lineupsError.message);
 
@@ -85,26 +84,39 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Group by league and rank by total_points desc, then total_spent unused — ties share position? Use dense rank by points.
-    const byLeague = new Map<string, typeof lineups>();
-    for (const l of lineups) {
+    // Skip lineups already awarded (double-finalize guard).
+    const pending = lineups.filter((l) => l.league_finish == null);
+    if (pending.length === 0) {
+      await admin.from("tournaments").update({ status: "completed" }).eq("id", tournament.id);
+      return jsonResponse({
+        message: `${tournament.name} already has season awards on all lineups.`,
+        tournamentId: tournament.id,
+        awards: 0,
+      });
+    }
+
+    const byLeague = new Map<string, typeof pending>();
+    for (const l of pending) {
       const arr = byLeague.get(l.league_id) ?? [];
       arr.push(l);
       byLeague.set(l.league_id, arr);
     }
 
     let awards = 0;
-    const awardSummary: { league_id: string; user_id: string; finish: number; fedex: number }[] = [];
+    const awardSummary: { league_id: string; user_id: string; finish: number; fedex: number }[] =
+      [];
 
     for (const [leagueId, leagueLineups] of byLeague) {
-      const sorted = [...leagueLineups].sort(
+      // Rank against all league lineups for this event so ties match full board.
+      const allForLeague = lineups.filter((l) => l.league_id === leagueId);
+      const sorted = [...allForLeague].sort(
         (a, b) => Number(b.total_points) - Number(a.total_points),
       );
 
-      // Dense ranking with ties: same points => same finish, next skips
       let finish = 0;
       let lastPoints: number | null = null;
       let index = 0;
+      const finishById = new Map<string, number>();
       for (const row of sorted) {
         index += 1;
         const pts = Number(row.total_points);
@@ -112,12 +124,29 @@ Deno.serve(async (req) => {
           finish = index;
           lastPoints = pts;
         }
-        const base = payoutByFinish.get(finish) ?? 0;
+        finishById.set(row.id, finish);
+      }
+
+      for (const row of leagueLineups) {
+        const place = finishById.get(row.id) ?? 0;
+        const base = payoutByFinish.get(place) ?? 0;
         const fedex = base * multiplier;
+        const isWin = place === 1;
+        const isTop5 = place >= 1 && place <= 5;
+
+        const { error: lineupError } = await admin
+          .from("lineups")
+          .update({
+            league_finish: place,
+            season_points: fedex,
+          })
+          .eq("id", row.id)
+          .is("league_finish", null);
+        if (lineupError) throw new Error(lineupError.message);
 
         const { data: existing } = await admin
           .from("season_standings")
-          .select("fedex_points, events_played")
+          .select("fedex_points, events_played, wins, top5s")
           .eq("league_id", leagueId)
           .eq("user_id", row.user_id)
           .eq("season_year", tournament.season_year)
@@ -129,6 +158,8 @@ Deno.serve(async (req) => {
             .update({
               fedex_points: Number(existing.fedex_points) + fedex,
               events_played: Number(existing.events_played) + 1,
+              wins: Number(existing.wins ?? 0) + (isWin ? 1 : 0),
+              top5s: Number(existing.top5s ?? 0) + (isTop5 ? 1 : 0),
             })
             .eq("league_id", leagueId)
             .eq("user_id", row.user_id)
@@ -141,6 +172,8 @@ Deno.serve(async (req) => {
             season_year: tournament.season_year,
             fedex_points: fedex,
             events_played: 1,
+            wins: isWin ? 1 : 0,
+            top5s: isTop5 ? 1 : 0,
           });
           if (error) throw new Error(error.message);
         }
@@ -149,7 +182,7 @@ Deno.serve(async (req) => {
         awardSummary.push({
           league_id: leagueId,
           user_id: row.user_id,
-          finish,
+          finish: place,
           fedex,
         });
       }

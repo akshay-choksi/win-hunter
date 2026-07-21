@@ -189,7 +189,9 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          league_finish: number | null
           league_id: string
+          season_points: number
           total_points: number
           total_spent: number
           tournament_id: string
@@ -199,7 +201,9 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          league_finish?: number | null
           league_id: string
+          season_points?: number
           total_points?: number
           total_spent?: number
           tournament_id: string
@@ -209,7 +213,9 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          league_finish?: number | null
           league_id?: string
+          season_points?: number
           total_points?: number
           total_spent?: number
           tournament_id?: string
@@ -421,24 +427,30 @@ export type Database = {
           fedex_points: number
           league_id: string
           season_year: number
+          top5s: number
           updated_at: string
           user_id: string
+          wins: number
         }
         Insert: {
           events_played?: number
           fedex_points?: number
           league_id: string
           season_year: number
+          top5s?: number
           updated_at?: string
           user_id: string
+          wins?: number
         }
         Update: {
           events_played?: number
           fedex_points?: number
           league_id?: string
           season_year?: number
+          top5s?: number
           updated_at?: string
           user_id?: string
+          wins?: number
         }
         Relationships: [
           {

@@ -29,7 +29,7 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 function createSupabaseClient() {
   const FALLBACK_SUPABASE_URL = "https://lkfdqzjoeigiwakhtsig.supabase.co";
-  const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6ImxrZmRxempvZWlnaXdha2h0c2lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5ODIxNzUsImV4cCI6MjA5OTU1ODE3NX0.tYNdC6cSfwe3AlhyNLE0tMvjXm9pstvJMIPk6ySe_RA";
+  const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxrZmRxempvZWlnaXdha2h0c2lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5ODIxNzUsImV4cCI6MjA5OTU1ODE3NX0.tYNdC6cSfwe3AlhyNLE0tMvjXm9pstvJMIPk6ySe_RA";
 
   // Use import.meta.env for client-side (Vite build-time replacement)
   // Fall back to public project values so published GitHub builds work even without a committed .env.

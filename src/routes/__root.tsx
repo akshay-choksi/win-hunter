@@ -93,6 +93,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "WinHunters — Fantasy Golf Salary Pool" },
+      { name: "twitter:description", content: "Draft golfers, stay under the salary cap, and win your fantasy golf league in real time." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/8d18e390-976d-4cdf-b883-92321a79eb1c" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/8d18e390-976d-4cdf-b883-92321a79eb1c" },
     ],
     links: [
       {

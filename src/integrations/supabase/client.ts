@@ -28,10 +28,14 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 
 function createSupabaseClient() {
+  const FALLBACK_SUPABASE_URL = "https://lkfdqzjoeigiwakhtsig.supabase.co";
+  const FALLBACK_SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6ImxrZmRxempvZWlnaXdha2h0c2lnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5ODIxNzUsImV4cCI6MjA5OTU1ODE3NX0.tYNdC6cSfwe3AlhyNLE0tMvjXm9pstvJMIPk6ySe_RA";
+
   // Use import.meta.env for client-side (Vite build-time replacement)
-  // Fall back to process.env for SSR (server-side rendering)
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-  const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY;
+  // Fall back to public project values so published GitHub builds work even without a committed .env.
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || FALLBACK_SUPABASE_URL;
+  const SUPABASE_PUBLISHABLE_KEY =
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || FALLBACK_SUPABASE_PUBLISHABLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [

@@ -136,10 +136,13 @@ export function thursdayLockAt(startDate: string | null | undefined): string | n
 }
 
 /** Parse a DataGolf tee time into an ISO timestamp; returns null if unparseable. */
-export function parseTeeTime(raw: unknown, fallbackDate?: string | null): string | null {
+export function parseTeeTime(
+  raw: unknown,
+  fallbackDate?: string | null,
+  tzOffsetSeconds?: number | null,
+): string | null {
   if (raw == null) return null;
   if (typeof raw === "number" && Number.isFinite(raw)) {
-    // Unix seconds or ms
     const ms = raw > 1e12 ? raw : raw * 1000;
     const d = new Date(ms);
     return Number.isNaN(d.getTime()) ? null : d.toISOString();
@@ -148,8 +151,20 @@ export function parseTeeTime(raw: unknown, fallbackDate?: string | null): string
   const s = raw.trim();
   if (!s) return null;
 
+  // Course-local wall clock: "2026-07-23 06:45" + field tz_offset (seconds east of UTC).
+  const localMatch = s.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (localMatch && tzOffsetSeconds != null && Number.isFinite(tzOffsetSeconds)) {
+    const isoLocal =
+      `${localMatch[1]}T${String(localMatch[2]).padStart(2, "0")}:` +
+      `${localMatch[3]}:${String(localMatch[4] ?? "00").padStart(2, "0")}.000Z`;
+    const asIfUtc = Date.parse(isoLocal);
+    if (!Number.isNaN(asIfUtc)) {
+      return new Date(asIfUtc - tzOffsetSeconds * 1000).toISOString();
+    }
+  }
+
   // Full ISO / datetime
-  const direct = new Date(s);
+  const direct = new Date(s.includes("T") ? s : s.replace(" ", "T"));
   if (!Number.isNaN(direct.getTime()) && /[T\s-]/.test(s) && s.length >= 10) {
     return direct.toISOString();
   }
@@ -171,22 +186,54 @@ export function parseTeeTime(raw: unknown, fallbackDate?: string | null): string
   return Number.isNaN(direct.getTime()) ? null : direct.toISOString();
 }
 
+/** Collect raw tee-time strings from a field player row (DataGolf shapes vary). */
+export function extractPlayerTeeTimeRaw(player: Record<string, unknown>): unknown[] {
+  const out: unknown[] = [];
+  const direct = player.tee_time ?? player.teetime ?? player.r1_tee_time ?? player.r1_teetime ??
+    player.teeTime;
+  if (direct != null) out.push(direct);
+
+  const teetimes = player.teetimes;
+  if (Array.isArray(teetimes)) {
+    for (const entry of teetimes) {
+      if (!entry || typeof entry !== "object") {
+        if (typeof entry === "string") out.push(entry);
+        continue;
+      }
+      const row = entry as Record<string, unknown>;
+      const round = row.round_num ?? row.round;
+      // Prefer round 1 for lock; if round missing, still consider.
+      if (round != null && Number(round) !== 1) continue;
+      if (row.teetime != null) out.push(row.teetime);
+      else if (row.tee_time != null) out.push(row.tee_time);
+    }
+  } else if (teetimes && typeof teetimes === "object") {
+    const map = teetimes as Record<string, unknown>;
+    for (const [k, v] of Object.entries(map)) {
+      if (/^r?1$/i.test(k) || k === "1") out.push(v);
+    }
+  }
+  return out;
+}
+
 /**
- * Earliest tee time across field players → lineup lock.
- * Falls back to Thursday morning UTC from start_date when no tees present.
+ * Earliest round-1 tee time across the field → lineup lock.
+ * Falls back to Thursday 14:00 UTC from start_date when no tees present.
  */
 export function earliestTeeLockAt(
   players: Record<string, unknown>[],
   startDate?: string | null,
+  tzOffsetSeconds?: number | null,
 ): string | null {
   let earliest: number | null = null;
   for (const p of players) {
-    const raw = p.tee_time ?? p.teetime ?? p.r1_tee_time ?? p.r1_teetime ?? p.teeTime;
-    const iso = parseTeeTime(raw, startDate);
-    if (!iso) continue;
-    const ms = new Date(iso).getTime();
-    if (Number.isNaN(ms)) continue;
-    if (earliest == null || ms < earliest) earliest = ms;
+    for (const raw of extractPlayerTeeTimeRaw(p)) {
+      const iso = parseTeeTime(raw, startDate, tzOffsetSeconds);
+      if (!iso) continue;
+      const ms = new Date(iso).getTime();
+      if (Number.isNaN(ms)) continue;
+      if (earliest == null || ms < earliest) earliest = ms;
+    }
   }
   if (earliest != null) return new Date(earliest).toISOString();
   return thursdayLockAt(startDate);

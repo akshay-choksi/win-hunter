@@ -204,8 +204,9 @@ export function formatEventSeasonPtsLabel(
   return `${typeLabel} · ×${mLabel} Season Pts`;
 }
 
+/** Lineups lock at lineup_lock_at (or when the event is completed). Status in_progress alone does not lock — Sync Odds may set that early while drafting is still open. */
 export function isLineupLocked(tournament: Pick<Tournament, "lineup_lock_at" | "status">): boolean {
-  if (tournament.status === "completed" || tournament.status === "in_progress") return true;
+  if (tournament.status === "completed") return true;
   if (!tournament.lineup_lock_at) return false;
   return Date.now() >= new Date(tournament.lineup_lock_at).getTime();
 }

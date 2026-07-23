@@ -143,6 +143,7 @@ Deno.serve(async (req) => {
     const lockFromTees = earliestTeeLockAt(
       fieldPlayers as Record<string, unknown>[],
       fieldMeta.startDate,
+      fieldMeta.tzOffsetSeconds,
     );
 
     if (!tournamentId) {
@@ -324,9 +325,17 @@ function extractFieldMeta(raw: unknown): {
   startDate: string | null;
   endDate: string | null;
   currentRound: number | null;
+  tzOffsetSeconds: number | null;
 } {
   if (!raw || typeof raw !== "object") {
-    return { eventId: null, eventName: null, startDate: null, endDate: null, currentRound: null };
+    return {
+      eventId: null,
+      eventName: null,
+      startDate: null,
+      endDate: null,
+      currentRound: null,
+      tzOffsetSeconds: null,
+    };
   }
   const obj = raw as Record<string, unknown>;
   const eventId = obj.event_id != null ? String(obj.event_id) : null;
@@ -350,7 +359,14 @@ function extractFieldMeta(raw: unknown): {
       : typeof cr === "string" && Number.isFinite(Number(cr))
         ? Math.trunc(Number(cr))
         : null;
-  return { eventId, eventName, startDate, endDate, currentRound };
+  const tzRaw = obj.tz_offset;
+  const tzOffsetSeconds =
+    typeof tzRaw === "number" && Number.isFinite(tzRaw)
+      ? Math.trunc(tzRaw)
+      : typeof tzRaw === "string" && Number.isFinite(Number(tzRaw))
+        ? Math.trunc(Number(tzRaw))
+        : null;
+  return { eventId, eventName, startDate, endDate, currentRound, tzOffsetSeconds };
 }
 
 /** Map DataGolf schedule status → our tournament_status. */

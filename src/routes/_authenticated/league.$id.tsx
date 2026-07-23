@@ -19,10 +19,12 @@ import {
   formatEventSeasonPtsLabel,
   type Tournament,
 } from "@/lib/scoring";
+import { initialsFromName } from "@/lib/profile";
 import { PageHeader } from "@/components/page-header";
 import { SurfacePanel } from "@/components/surface-panel";
 import { StatusBadge } from "@/components/status-badge";
 import { StatCard } from "@/components/stat-card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export const Route = createFileRoute("/_authenticated/league/$id")({
   component: LeaguePage,
@@ -39,6 +41,7 @@ type LeagueRow = {
 type EventStanding = {
   user_id: string;
   full_name: string | null;
+  avatar_url: string | null;
   total_spent: number;
   total_points: number;
   golfer_count: number;
@@ -49,10 +52,38 @@ type EventStanding = {
 type SeasonStanding = {
   user_id: string;
   full_name: string | null;
+  avatar_url: string | null;
   fedex_points: number;
   wins: number;
   top5s: number;
 };
+
+function PlayerLabel({
+  name,
+  avatarUrl,
+  isYou,
+}: {
+  name: string;
+  avatarUrl: string | null;
+  isYou?: boolean;
+}) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <Avatar className="h-7 w-7 border border-border/60">
+        {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+        <AvatarFallback className="bg-navy text-[10px] font-semibold text-navy-foreground">
+          {initialsFromName(name)}
+        </AvatarFallback>
+      </Avatar>
+      <span>
+        {name}
+        {isYou ? (
+          <span className="ml-2 text-xs font-normal text-muted-foreground">you</span>
+        ) : null}
+      </span>
+    </span>
+  );
+}
 
 function LeaguePage() {
   const { id } = useParams({ from: "/_authenticated/league/$id" });
@@ -104,14 +135,18 @@ function LeaguePage() {
 
     const [{ data: profiles }, { data: entries }] = await Promise.all([
       userIds.length
-        ? supabase.from("profiles").select("id, full_name").in("id", userIds)
-        : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+        ? supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds)
+        : Promise.resolve({
+            data: [] as { id: string; full_name: string | null; avatar_url: string | null }[],
+          }),
       lineupIds.length
         ? supabase.from("lineup_entries").select("lineup_id").in("lineup_id", lineupIds)
         : Promise.resolve({ data: [] as { lineup_id: string }[] }),
     ]);
 
-    const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+    const profileById = new Map(
+      (profiles ?? []).map((p) => [p.id, { full_name: p.full_name, avatar_url: p.avatar_url }]),
+    );
     const countByLineup = new Map<string, number>();
     (entries ?? []).forEach((e) => {
       countByLineup.set(e.lineup_id, (countByLineup.get(e.lineup_id) ?? 0) + 1);
@@ -120,7 +155,8 @@ function LeaguePage() {
     const rows: EventStanding[] = lineups
       .map((l) => ({
         user_id: l.user_id,
-        full_name: nameById.get(l.user_id) ?? "Player",
+        full_name: profileById.get(l.user_id)?.full_name ?? "Player",
+        avatar_url: profileById.get(l.user_id)?.avatar_url ?? null,
         total_spent: l.total_spent,
         total_points: Number(l.total_points ?? 0),
         golfer_count: countByLineup.get(l.id) ?? 0,
@@ -149,14 +185,19 @@ function LeaguePage() {
     const rows = data ?? [];
     const userIds = rows.map((r) => r.user_id);
     const { data: profiles } = userIds.length
-      ? await supabase.from("profiles").select("id, full_name").in("id", userIds)
-      : { data: [] as { id: string; full_name: string | null }[] };
-    const nameById = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+      ? await supabase.from("profiles").select("id, full_name, avatar_url").in("id", userIds)
+      : {
+          data: [] as { id: string; full_name: string | null; avatar_url: string | null }[],
+        };
+    const profileById = new Map(
+      (profiles ?? []).map((p) => [p.id, { full_name: p.full_name, avatar_url: p.avatar_url }]),
+    );
 
     setSeasonStandings(
       rows.map((r) => ({
         user_id: r.user_id,
-        full_name: nameById.get(r.user_id) ?? "Player",
+        full_name: profileById.get(r.user_id)?.full_name ?? "Player",
+        avatar_url: profileById.get(r.user_id)?.avatar_url ?? null,
         fedex_points: Number(r.fedex_points ?? 0),
         wins: Number(r.wins ?? 0),
         top5s: Number(r.top5s ?? 0),
@@ -426,22 +467,18 @@ function LeaguePage() {
                                 search={{ tournament: selectedTournamentId ?? undefined }}
                                 className="text-primary hover:underline"
                               >
-                                {s.full_name ?? "Player"}
-                                {isYou ? (
-                                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                                    you
-                                  </span>
-                                ) : null}
+                                <PlayerLabel
+                                  name={s.full_name ?? "Player"}
+                                  avatarUrl={s.avatar_url}
+                                  isYou={isYou}
+                                />
                               </Link>
                             ) : (
-                              <>
-                                {s.full_name ?? "Player"}
-                                {isYou ? (
-                                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                                    you
-                                  </span>
-                                ) : null}
-                              </>
+                              <PlayerLabel
+                                name={s.full_name ?? "Player"}
+                                avatarUrl={s.avatar_url}
+                                isYou={isYou}
+                              />
                             )}
                           </td>
                           <td className="px-5 py-3 tabular-nums">
@@ -504,12 +541,11 @@ function LeaguePage() {
                           )}
                         </td>
                         <td className="px-5 py-3 font-medium">
-                          {s.full_name ?? "Player"}
-                          {s.user_id === user?.id ? (
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">
-                              you
-                            </span>
-                          ) : null}
+                          <PlayerLabel
+                            name={s.full_name ?? "Player"}
+                            avatarUrl={s.avatar_url}
+                            isYou={s.user_id === user?.id}
+                          />
                         </td>
                         <td className="px-5 py-3 text-right tabular-nums">{s.wins}</td>
                         <td className="px-5 py-3 text-right tabular-nums">{s.top5s}</td>

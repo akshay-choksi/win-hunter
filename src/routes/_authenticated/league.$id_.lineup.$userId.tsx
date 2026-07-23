@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Lock, RefreshCw } from "lucide-react";
 import { GolferAvatar } from "@/components/golfer-avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
 import {
   breakdownFantasyPoints,
@@ -13,6 +14,7 @@ import {
   pickActiveTournament,
   type Tournament,
 } from "@/lib/scoring";
+import { initialsFromName } from "@/lib/profile";
 
 export const Route = createFileRoute("/_authenticated/league/$id_/lineup/$userId")({
   validateSearch: (search: Record<string, unknown>) => ({
@@ -87,6 +89,7 @@ function LineupViewerPage() {
 
   const [leagueName, setLeagueName] = useState("");
   const [ownerName, setOwnerName] = useState("Player");
+  const [ownerAvatarUrl, setOwnerAvatarUrl] = useState<string | null>(null);
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [rows, setRows] = useState<GolferRow[]>([]);
   const [totalSpent, setTotalSpent] = useState(0);
@@ -114,11 +117,12 @@ function LineupViewerPage() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name")
+      .select("full_name, avatar_url")
       .eq("id", userId)
       .maybeSingle();
     if (gen !== loadGenRef.current) return;
     setOwnerName(profile?.full_name ?? "Player");
+    setOwnerAvatarUrl(profile?.avatar_url ?? null);
 
     let active: Tournament | null = null;
     if (tournamentQuery) {
@@ -395,13 +399,21 @@ function LineupViewerPage() {
 
       <div className="rounded-lg bg-slate-900 px-5 py-5 text-white">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-slate-400">
-              {isOwn ? "Your lineup" : "Member lineup"}
-            </p>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight">{ownerName}</h1>
-            <p className="mt-1 text-sm text-slate-300">{tournament?.name ?? "No event"}</p>
-            <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
+          <div className="flex items-start gap-3">
+            <Avatar className="mt-0.5 h-12 w-12 border border-white/20">
+              {ownerAvatarUrl ? <AvatarImage src={ownerAvatarUrl} alt="" /> : null}
+              <AvatarFallback className="bg-white/10 text-sm font-semibold text-white">
+                {initialsFromName(ownerName)}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                {isOwn ? "Your lineup" : "Member lineup"}
+              </p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight">{ownerName}</h1>
+              <p className="mt-1 text-sm text-slate-300">{tournament?.name ?? "No event"}</p>
+              <p className="mt-1 text-xs text-slate-400">{subtitle}</p>
+            </div>
           </div>
           {tournament?.status === "in_progress" ? (
             <div className="text-right">

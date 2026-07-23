@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
-import { Flag, LayoutGrid, LogOut, Shield, ChevronDown } from "lucide-react";
+import { Flag, LayoutGrid, LogOut, Shield, ChevronDown, UserRound } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useIsAdmin } from "@/hooks/use-is-admin";
+import { useProfile } from "@/hooks/use-profile";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,19 +16,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-
-function emailInitials(email: string | undefined) {
-  if (!email) return "?";
-  const local = email.split("@")[0] ?? email;
-  const parts = local.split(/[._-]/).filter(Boolean);
-  if (parts.length >= 2) {
-    return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
-  }
-  return local.slice(0, 2).toUpperCase();
-}
+import { initialsFromName } from "@/lib/profile";
 
 export function AppHeader() {
   const { user } = useAuth();
+  const { profile } = useProfile();
   const { isAdmin } = useIsAdmin();
   const router = useRouter();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -39,6 +32,8 @@ export function AppHeader() {
 
   const onLeagues = pathname === "/" || pathname.startsWith("/league");
   const onAdmin = pathname.startsWith("/admin");
+  const displayName = profile?.full_name?.trim() || user?.email || "Account";
+  const initials = initialsFromName(profile?.full_name, user?.email);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-card/85 backdrop-blur-md supports-[backdrop-filter]:bg-card/70">
@@ -101,12 +96,15 @@ export function AppHeader() {
                 className="h-9 gap-2 border-border/80 bg-background/60 pl-1.5 pr-2.5"
               >
                 <Avatar className="h-6 w-6">
+                  {profile?.avatar_url ? (
+                    <AvatarImage src={profile.avatar_url} alt="" />
+                  ) : null}
                   <AvatarFallback className="bg-navy text-[10px] font-semibold text-navy-foreground">
-                    {emailInitials(user?.email)}
+                    {initials}
                   </AvatarFallback>
                 </Avatar>
                 <span className="hidden max-w-[160px] truncate text-sm font-medium md:inline">
-                  {user?.email ?? "Account"}
+                  {displayName}
                 </span>
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
@@ -114,13 +112,19 @@ export function AppHeader() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col gap-0.5">
-                  <span className="text-sm font-medium">Signed in</span>
+                  <span className="text-sm font-medium truncate">{displayName}</span>
                   <span className="truncate text-xs text-muted-foreground">
                     {user?.email ?? "—"}
                   </span>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/profile">
+                  <UserRound className="h-4 w-4" />
+                  Profile
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem asChild className="sm:hidden">
                 <Link to="/">
                   <LayoutGrid className="h-4 w-4" />
@@ -135,7 +139,7 @@ export function AppHeader() {
                   </Link>
                 </DropdownMenuItem>
               ) : null}
-              <DropdownMenuSeparator className="sm:hidden" />
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={signOut}
                 className="text-destructive focus:text-destructive"

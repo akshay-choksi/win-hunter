@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
@@ -80,7 +80,10 @@ function StatPts({ count, pts }: { count?: number; pts: number }) {
 function LineupViewerPage() {
   const { id: leagueId, userId } = Route.useParams();
   const { tournament: tournamentQuery } = Route.useSearch();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const viewerIdRef = useRef<string | null>(null);
+  const loadGenRef = useRef(0);
+  viewerIdRef.current = user?.id ?? null;
 
   const [leagueName, setLeagueName] = useState("");
   const [ownerName, setOwnerName] = useState("Player");
@@ -93,10 +96,11 @@ function LineupViewerPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
-  const isOwn = user?.id === userId;
+  const isOwn = Boolean(user?.id && user.id === userId);
   const locked = tournament ? isLineupLocked(tournament) : false;
 
   async function load() {
+    const gen = ++loadGenRef.current;
     setLoading(true);
     setForbidden(false);
 
@@ -105,6 +109,7 @@ function LineupViewerPage() {
       .select("name")
       .eq("id", leagueId)
       .maybeSingle();
+    if (gen !== loadGenRef.current) return;
     setLeagueName(league?.name ?? "League");
 
     const { data: profile } = await supabase
@@ -112,6 +117,7 @@ function LineupViewerPage() {
       .select("full_name")
       .eq("id", userId)
       .maybeSingle();
+    if (gen !== loadGenRef.current) return;
     setOwnerName(profile?.full_name ?? "Player");
 
     let active: Tournament | null = null;
@@ -138,6 +144,7 @@ function LineupViewerPage() {
         (tournamentQuery ? list.find((t) => t.id === tournamentQuery) : null) ??
         pickActiveTournament(list);
     }
+    if (gen !== loadGenRef.current) return;
     setTournament(active);
 
     if (!active) {
@@ -151,9 +158,17 @@ function LineupViewerPage() {
       .select("last_completed_at")
       .eq("tournament_id", active.id)
       .maybeSingle();
+    if (gen !== loadGenRef.current) return;
     setLastSyncedAt(syncState?.last_completed_at ?? null);
 
-    const viewingOthers = user?.id !== userId;
+    // Wait for auth — `user == null` must not be treated as "viewing someone else"
+    // or a stale in-flight load can flash/stick the lock screen on your own lineup.
+    const viewerId = viewerIdRef.current;
+    if (!viewerId) {
+      setLoading(true);
+      return;
+    }
+    const viewingOthers = viewerId !== userId;
     if (viewingOthers && !isLineupLocked(active)) {
       setForbidden(true);
       setRows([]);
@@ -168,6 +183,7 @@ function LineupViewerPage() {
       .eq("user_id", userId)
       .eq("tournament_id", active.id)
       .maybeSingle();
+    if (gen !== loadGenRef.current) return;
 
     if (!lineup) {
       setRows([]);
@@ -223,6 +239,7 @@ function LineupViewerPage() {
             }[],
           }),
     ]);
+    if (gen !== loadGenRef.current) return;
 
     const priceById = new Map((prices ?? []).map((p) => [p.golfer_id, p]));
     const resultById = new Map((results ?? []).map((r) => [r.golfer_id, r]));
@@ -291,16 +308,19 @@ function LineupViewerPage() {
   }
 
   useEffect(() => {
-    load();
+    if (authLoading) return;
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueId, userId, tournamentQuery, user?.id]);
+  }, [leagueId, userId, tournamentQuery, user?.id, authLoading]);
 
   useEffect(() => {
     if (!tournament) return;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     const scheduleLoad = () => {
       clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => load(), 350);
+      refreshTimer = setTimeout(() => {
+        if (viewerIdRef.current) void load();
+      }, 350);
     };
     const channel = supabase
       .channel(`lineup-view-${leagueId}-${userId}-${tournament.id}`)
@@ -355,7 +375,8 @@ function LineupViewerPage() {
           <Lock className="mx-auto mb-3 h-10 w-10 text-amber-600" />
           <h2 className="text-lg font-bold">Lineups still open</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Other members&apos; lineups become visible after first tee / lock.
+            Other members&apos; lineups stay hidden until lock (first tee). You can always open yours
+            from &quot;View my lineup&quot; or your name marked you.
           </p>
         </div>
       </div>
